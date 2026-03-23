@@ -1,4 +1,4 @@
-export type UserMode = 'consumer' | 'provider';
+export type UserMode = 'consumer' | 'provider' | null;
 
 export type Screen =
   // Shared
@@ -50,7 +50,7 @@ export interface Job {
 }
 
 export interface AppState {
-  mode: UserMode | null;
+  mode: UserMode;
   screen: Screen;
   selectedProvider: Provider | null;
   activeJob: Job | null;
