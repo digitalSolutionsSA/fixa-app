@@ -307,7 +307,7 @@ export function ProviderDashboard() {
               </div>
             ) : (
               <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                You currently have {pendingJobsCount} new request{pendingJobsCount === 1 ? '' : 's'} available.
+                You currently have {pendingJobsCount} new requests available.
               </div>
             )}
           </div>
