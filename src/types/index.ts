@@ -4,6 +4,7 @@ export type Screen =
   // Shared
   | 'onboarding'
   | 'mode-select'
+  | 'auth'
   // Consumer
   | 'consumer-home'
   | 'find-provider'

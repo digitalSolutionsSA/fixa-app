@@ -1,6 +1,6 @@
 import React from 'react';
 import { Home, Briefcase, DollarSign, User, MapPin, Shield, Bell, ChevronLeft, Info, AlertTriangle, Star, BarChart2 } from 'lucide-react';
-import { useApp } from '../context/AppContext';
+import { useApp } from '../contexts/AppContext';
 import type { Screen } from '../types';
 
 export const FIXALogo: React.FC<{ size?: 'sm'|'md'|'lg' }> = ({ size = 'md' }) => {
