@@ -78,6 +78,10 @@ function normalizeRole(role: unknown): DemoRole | null {
   return null;
 }
 
+function getDbRole(role: DemoRole): 'customer' | 'provider' {
+  return role === 'provider' ? 'provider' : 'customer';
+}
+
 function getHomeScreenForRole(role: DemoRole): Screen {
   return role === 'consumer' ? 'consumer-home' : 'provider-home';
 }
@@ -166,9 +170,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     const matchedDemoUser = DEMO_USERS.find(
-      (user) =>
-        user.email.toLowerCase() === normalizedEmail &&
-        user.password === password
+      (user) => user.email.toLowerCase() === normalizedEmail && user.password === password
     );
 
     if (matchedDemoUser) {
@@ -241,8 +243,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     const actualRole =
-      normalizeRole(profile?.role) ||
-      normalizeRole(data.user.user_metadata?.role);
+      normalizeRole(profile?.role) || normalizeRole(data.user.user_metadata?.role);
 
     if (!actualRole) {
       await supabase.auth.signOut();
@@ -358,19 +359,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     }
 
-    const { data: existingProfile } = await supabase
-  .from('profiles')
-  .select('id, email, phone')
-  .or(`email.eq.${normalizedEmail},phone.eq.${trimmedPhone}`)
-  .maybeSingle();
-
-if (existingProfile) {
-  return {
-    success: false,
-    error: 'An account with this email or phone number already exists.',
-  };
-}
-
     const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
@@ -378,65 +366,48 @@ if (existingProfile) {
         data: {
           full_name: trimmedName,
           phone: trimmedPhone,
-          role: normalizedRole,
+          role: getDbRole(normalizedRole),
         },
       },
     });
 
     if (error || !data.user) {
-  console.error('SUPABASE SIGNUP ERROR:', {
-    error,
-    message: error?.message,
-    status: (error as any)?.status,
-    code: (error as any)?.code,
-    name: (error as any)?.name,
-    email: normalizedEmail,
-    phone: trimmedPhone,
-    role: normalizedRole,
-  });
-
-  if (isRateLimitError(error)) {
-    return {
-      success: false,
-      error: 'Too many sign-up attempts. Please wait a few minutes and try again.',
-    };
-  }
-
-  const errorMessage = error?.message?.toLowerCase() || '';
-  const errorCode = (error as any)?.code?.toLowerCase?.() || '';
-
-  if (
-    errorMessage.includes('already registered') ||
-    errorMessage.includes('already exists') ||
-    errorCode.includes('user_already_exists') ||
-    errorCode.includes('email_exists')
-  ) {
-    return {
-      success: false,
-      error: 'This email address is already registered. Please sign in instead.',
-    };
-  }
-
-  return {
-    success: false,
-    error: error?.message || 'Unable to sign up.',
-  };
-}
-    const { error: profileError } = await supabase.from('profiles').upsert(
-      {
-        id: data.user.id,
-        full_name: trimmedName,
+      console.error('SUPABASE SIGNUP ERROR:', {
+        error,
+        message: error?.message,
+        status: (error as any)?.status,
+        code: (error as any)?.code,
+        name: (error as any)?.name,
         email: normalizedEmail,
         phone: trimmedPhone,
-        role: normalizedRole,
-      },
-      { onConflict: 'id' }
-    );
+        role: getDbRole(normalizedRole),
+      });
 
-    if (profileError) {
+      if (isRateLimitError(error)) {
+        return {
+          success: false,
+          error: 'Too many sign-up attempts. Please wait a few minutes and try again.',
+        };
+      }
+
+      const errorMessage = error?.message?.toLowerCase() || '';
+      const errorCode = (error as any)?.code?.toLowerCase?.() || '';
+
+      if (
+        errorMessage.includes('already registered') ||
+        errorMessage.includes('already exists') ||
+        errorCode.includes('user_already_exists') ||
+        errorCode.includes('email_exists')
+      ) {
+        return {
+          success: false,
+          error: 'This email address is already registered. Please sign in instead.',
+        };
+      }
+
       return {
         success: false,
-        error: profileError.message || 'Account created, but profile setup failed.',
+        error: error?.message || 'Unable to sign up.',
       };
     }
 

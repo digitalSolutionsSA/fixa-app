@@ -127,13 +127,12 @@ export const AuthScreen: React.FC = () => {
 
     try {
       const result = await registerFn(
-        name.trim(),
-        email.trim(),
-        phone.trim(),
-        password,
-        authRole
-      );
-
+  name.trim(),
+  email.trim(),
+  phone.trim(),
+  password,
+  activeRole
+);
       if (!result?.success) {
         setError(result?.error || 'Unable to sign up.');
         return;
