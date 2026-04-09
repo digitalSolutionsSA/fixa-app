@@ -17,6 +17,7 @@
         "npm:@vitejs/plugin-react@^4.2.1",
         "npm:lucide-react@0.383",
         "npm:react-dom@^18.2.0",
+        "npm:react-router-dom@^7.14.0",
         "npm:react@^18.2.0",
         "npm:typescript@^5.2.2",
         "npm:vite@^5.0.8"

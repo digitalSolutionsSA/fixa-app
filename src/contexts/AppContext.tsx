@@ -358,6 +358,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     }
 
+    const { data: existingProfile } = await supabase
+  .from('profiles')
+  .select('id, email, phone')
+  .or(`email.eq.${normalizedEmail},phone.eq.${trimmedPhone}`)
+  .maybeSingle();
+
+if (existingProfile) {
+  return {
+    success: false,
+    error: 'An account with this email or phone number already exists.',
+  };
+}
+
     const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
@@ -371,19 +384,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     if (error || !data.user) {
-      if (isRateLimitError(error)) {
-        return {
-          success: false,
-          error: 'Too many sign-up attempts. Please wait a few minutes and try again.',
-        };
-      }
+  console.error('SUPABASE SIGNUP ERROR:', {
+    error,
+    message: error?.message,
+    status: (error as any)?.status,
+    code: (error as any)?.code,
+    name: (error as any)?.name,
+    email: normalizedEmail,
+    phone: trimmedPhone,
+    role: normalizedRole,
+  });
 
-      return {
-        success: false,
-        error: error?.message || 'Unable to sign up.',
-      };
-    }
+  if (isRateLimitError(error)) {
+    return {
+      success: false,
+      error: 'Too many sign-up attempts. Please wait a few minutes and try again.',
+    };
+  }
 
+  const errorMessage = error?.message?.toLowerCase() || '';
+  const errorCode = (error as any)?.code?.toLowerCase?.() || '';
+
+  if (
+    errorMessage.includes('already registered') ||
+    errorMessage.includes('already exists') ||
+    errorCode.includes('user_already_exists') ||
+    errorCode.includes('email_exists')
+  ) {
+    return {
+      success: false,
+      error: 'This email address is already registered. Please sign in instead.',
+    };
+  }
+
+  return {
+    success: false,
+    error: error?.message || 'Unable to sign up.',
+  };
+}
     const { error: profileError } = await supabase.from('profiles').upsert(
       {
         id: data.user.id,

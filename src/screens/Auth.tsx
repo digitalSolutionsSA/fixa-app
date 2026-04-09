@@ -20,7 +20,11 @@ export const AuthScreen: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastSignupAttempt, setLastSignupAttempt] = useState(0);
 
-  const activeRole = mode ?? 'consumer';
+  // Database expects "customer" or "provider"
+  const authRole: 'customer' | 'provider' = mode === 'provider' ? 'provider' : 'customer';
+
+  // UI can still say "Consumer"
+  const activeRole: 'consumer' | 'provider' = mode === 'provider' ? 'provider' : 'consumer';
 
   const demoCredentials = useMemo(
     () => ({
@@ -127,7 +131,7 @@ export const AuthScreen: React.FC = () => {
         email.trim(),
         phone.trim(),
         password,
-        activeRole
+        authRole
       );
 
       if (!result?.success) {
