@@ -32,7 +32,7 @@ const CENTER_Y = BUBBLE_AREA_SIZE / 2;
 const LOGO_COLLISION_RADIUS = 74;
 const HERO_LOGO_SIZE = 190;
 const MODE_LOGO_SIZE = 120;
-const LOGO_SRC = '/fixa-logo.png';
+const LOGO_SRC = '/fixa-logo.webp';
 
 export const OnboardingScreen: React.FC = () => {
   const { navigate } = useApp();
