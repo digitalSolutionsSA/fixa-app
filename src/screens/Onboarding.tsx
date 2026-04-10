@@ -30,6 +30,9 @@ const BUBBLE_AREA_SIZE = 360;
 const CENTER_X = BUBBLE_AREA_SIZE / 2;
 const CENTER_Y = BUBBLE_AREA_SIZE / 2;
 const LOGO_COLLISION_RADIUS = 74;
+const HERO_LOGO_SIZE = 190;
+const MODE_LOGO_SIZE = 120;
+const LOGO_SRC = '/fixa-logo.png';
 
 export const OnboardingScreen: React.FC = () => {
   const { navigate } = useApp();
@@ -81,6 +84,11 @@ export const OnboardingScreen: React.FC = () => {
   useEffect(() => {
     setBubbles(initialBubbles);
   }, [initialBubbles]);
+
+  useEffect(() => {
+    const preloadLogo = new Image();
+    preloadLogo.src = LOGO_SRC;
+  }, []);
 
   useEffect(() => {
     const animate = () => {
@@ -283,8 +291,8 @@ export const OnboardingScreen: React.FC = () => {
               position: 'absolute',
               top: '50%',
               left: '50%',
-              width: 160,
-              height: 160,
+              width: HERO_LOGO_SIZE,
+              height: HERO_LOGO_SIZE,
               transform: 'translate(-50%, -50%)',
               display: 'flex',
               alignItems: 'center',
@@ -295,12 +303,16 @@ export const OnboardingScreen: React.FC = () => {
             }}
           >
             <img
-              src="/fixa-logo.png"
+              src={LOGO_SRC}
               alt="Fixa Logo"
+              loading="eager"
+              draggable={false}
               style={{
-                width: 185,
+                width: HERO_LOGO_SIZE,
+                height: HERO_LOGO_SIZE,
                 maxWidth: '100%',
-                height: 'auto',
+                maxHeight: '100%',
+                objectFit: 'contain',
                 display: 'block',
                 filter: 'drop-shadow(0 12px 28px rgba(0,0,0,0.35))',
               }}
@@ -390,6 +402,11 @@ export const OnboardingScreen: React.FC = () => {
 export const ModeSelectScreen: React.FC = () => {
   const { setMode, navigate } = useApp();
 
+  useEffect(() => {
+    const preloadLogo = new Image();
+    preloadLogo.src = LOGO_SRC;
+  }, []);
+
   const choose = (mode: 'consumer' | 'provider') => {
     setMode(mode);
     navigate('auth');
@@ -399,11 +416,14 @@ export const ModeSelectScreen: React.FC = () => {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)' }}>
       <div style={{ background: 'var(--teal)', padding: '24px 20px 28px', textAlign: 'center', flexShrink: 0 }}>
         <img
-          src="/fixa-logo.png"
+          src={LOGO_SRC}
           alt="Fixa Logo"
+          loading="eager"
+          draggable={false}
           style={{
-            width: 120,
-            height: 'auto',
+            width: MODE_LOGO_SIZE,
+            height: MODE_LOGO_SIZE,
+            objectFit: 'contain',
             margin: '0 auto',
             display: 'block',
           }}
