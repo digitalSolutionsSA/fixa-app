@@ -113,6 +113,47 @@ function isRateLimitError(error: unknown): boolean {
   );
 }
 
+function safeTrim(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeEmail(value: unknown): string {
+  return safeTrim(value).toLowerCase();
+}
+
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function getAuthErrorMessage(error: unknown, fallback: string): string {
+  if (!error || typeof error !== 'object') return fallback;
+
+  const maybeError = error as { message?: string; status?: number; code?: string };
+  const message = maybeError.message?.trim();
+
+  if (!message) return fallback;
+
+  const lower = message.toLowerCase();
+
+  if (lower.includes('invalid login credentials')) {
+    return 'Invalid email or password.';
+  }
+
+  if (lower.includes('email not confirmed')) {
+    return 'Please confirm your email address before signing in.';
+  }
+
+  if (lower.includes('failed to fetch')) {
+    return 'Network error. Please check your connection and try again.';
+  }
+
+  if (lower.includes('fetch')) {
+    return 'Network error. Please try again.';
+  }
+
+  return message;
+}
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<AppState>({
     mode: null,
@@ -152,49 +193,157 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const login = async (email: string, password: string): Promise<AuthResult> => {
-    const normalizedEmail = email.trim().toLowerCase();
-    const selectedMode = normalizeRole(state.mode);
+    try {
+      const normalizedEmail = normalizeEmail(email);
+      const cleanPassword = typeof password === 'string' ? password : '';
+      const selectedMode = normalizeRole(state.mode);
 
-    if (!normalizedEmail || !password) {
-      return {
-        success: false,
-        error: 'Email and password are required.',
-      };
-    }
+      console.log('LOGIN INPUT', {
+        normalizedEmail,
+        passwordExists: !!cleanPassword,
+        selectedMode,
+        emailType: typeof email,
+        passwordType: typeof password,
+      });
 
-    if (!selectedMode) {
-      return {
-        success: false,
-        error: 'Please choose whether you are signing in as a consumer or provider first.',
-      };
-    }
-
-    const matchedDemoUser = DEMO_USERS.find(
-      (user) => user.email.toLowerCase() === normalizedEmail && user.password === password
-    );
-
-    if (matchedDemoUser) {
-      const actualRole = normalizeRole(matchedDemoUser.role);
-
-      if (!actualRole) {
+      if (!normalizedEmail || !cleanPassword) {
         return {
           success: false,
-          error: 'This demo account has an invalid role configuration.',
+          error: 'Email and password are required.',
+        };
+      }
+
+      if (!isValidEmail(normalizedEmail)) {
+        return {
+          success: false,
+          error: 'Please enter a valid email address.',
+        };
+      }
+
+      if (!selectedMode) {
+        return {
+          success: false,
+          error: 'Please choose whether you are signing in as a consumer or provider first.',
+        };
+      }
+
+      const matchedDemoUser = DEMO_USERS.find(
+        (user) => user.email.toLowerCase() === normalizedEmail && user.password === cleanPassword
+      );
+
+      if (matchedDemoUser) {
+        const actualRole = normalizeRole(matchedDemoUser.role);
+
+        if (!actualRole) {
+          return {
+            success: false,
+            error: 'This demo account has an invalid role configuration.',
+          };
+        }
+
+        if (selectedMode !== actualRole) {
+          return {
+            success: false,
+            error: getRoleMismatchMessage(selectedMode, actualRole),
+          };
+        }
+
+        const safeUser = stripPassword(matchedDemoUser);
+
+        setCurrentUser(safeUser);
+        setIsAuthenticated(true);
+        setIsDemo(true);
+
+        setState((s) => ({
+          ...s,
+          mode: actualRole,
+          screen: getHomeScreenForRole(actualRole),
+          selectedProvider: null,
+          activeJob: null,
+          panicActive: false,
+        }));
+
+        return { success: true };
+      }
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password: cleanPassword,
+      });
+
+      if (error || !data.user) {
+        console.error('SUPABASE LOGIN ERROR:', {
+          error,
+          message: (error as any)?.message,
+          status: (error as any)?.status,
+          code: (error as any)?.code,
+          email: normalizedEmail,
+        });
+
+        if (isRateLimitError(error)) {
+          return {
+            success: false,
+            error: 'Too many sign-in attempts. Please wait a few minutes and try again.',
+          };
+        }
+
+        return {
+          success: false,
+          error: getAuthErrorMessage(error, 'Invalid email or password.'),
+        };
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, phone, role')
+        .eq('id', data.user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        await supabase.auth.signOut();
+
+        return {
+          success: false,
+          error: profileError.message || 'Unable to load your profile.',
+        };
+      }
+
+      const actualRole =
+        normalizeRole(profile?.role) || normalizeRole(data.user.user_metadata?.role);
+
+      if (!actualRole) {
+        await supabase.auth.signOut();
+
+        return {
+          success: false,
+          error: 'Your account role is missing or invalid. Please contact support.',
         };
       }
 
       if (selectedMode !== actualRole) {
+        await supabase.auth.signOut();
+
         return {
           success: false,
           error: getRoleMismatchMessage(selectedMode, actualRole),
         };
       }
 
-      const safeUser = stripPassword(matchedDemoUser);
+      const safeUser: SafeUser = {
+        id: data.user.id,
+        name:
+          profile?.full_name ||
+          data.user.user_metadata?.full_name ||
+          data.user.email?.split('@')[0] ||
+          'User',
+        email: profile?.email || data.user.email || normalizedEmail,
+        phone: profile?.phone || data.user.user_metadata?.phone || '',
+        role: actualRole,
+      };
 
       setCurrentUser(safeUser);
       setIsAuthenticated(true);
-      setIsDemo(true);
+      setIsDemo(false);
 
       setState((s) => ({
         ...s,
@@ -206,89 +355,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }));
 
       return { success: true };
-    }
-
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: normalizedEmail,
-      password,
-    });
-
-    if (error || !data.user) {
-      if (isRateLimitError(error)) {
-        return {
-          success: false,
-          error: 'Too many sign-in attempts. Please wait a few minutes and try again.',
-        };
-      }
-
+    } catch (error) {
+      console.error('LOGIN UNEXPECTED ERROR:', error);
       return {
         success: false,
-        error: error?.message || 'Invalid email or password.',
+        error: getAuthErrorMessage(error, 'Something went wrong while signing in.'),
       };
     }
-
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('id, full_name, email, phone, role')
-      .eq('id', data.user.id)
-      .maybeSingle();
-
-    if (profileError) {
-      await supabase.auth.signOut();
-
-      return {
-        success: false,
-        error: profileError.message || 'Unable to load your profile.',
-      };
-    }
-
-    const actualRole =
-      normalizeRole(profile?.role) || normalizeRole(data.user.user_metadata?.role);
-
-    if (!actualRole) {
-      await supabase.auth.signOut();
-
-      return {
-        success: false,
-        error: 'Your account role is missing or invalid. Please contact support.',
-      };
-    }
-
-    if (selectedMode !== actualRole) {
-      await supabase.auth.signOut();
-
-      return {
-        success: false,
-        error: getRoleMismatchMessage(selectedMode, actualRole),
-      };
-    }
-
-    const safeUser: SafeUser = {
-      id: data.user.id,
-      name:
-        profile?.full_name ||
-        data.user.user_metadata?.full_name ||
-        data.user.email?.split('@')[0] ||
-        'User',
-      email: profile?.email || data.user.email || normalizedEmail,
-      phone: profile?.phone || data.user.user_metadata?.phone || '',
-      role: actualRole,
-    };
-
-    setCurrentUser(safeUser);
-    setIsAuthenticated(true);
-    setIsDemo(false);
-
-    setState((s) => ({
-      ...s,
-      mode: actualRole,
-      screen: getHomeScreenForRole(actualRole),
-      selectedProvider: null,
-      activeJob: null,
-      panicActive: false,
-    }));
-
-    return { success: true };
   };
 
   const register = async (
@@ -298,170 +371,190 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     password: string,
     role: DemoRole
   ): Promise<AuthResult> => {
-    const now = Date.now();
+    try {
+      const now = Date.now();
 
-    if (now - lastRegisterAttemptRef.current < 5000) {
-      return {
-        success: false,
-        error: 'Please wait a few seconds before trying again.',
-      };
-    }
+      if (now - lastRegisterAttemptRef.current < 5000) {
+        return {
+          success: false,
+          error: 'Please wait a few seconds before trying again.',
+        };
+      }
 
-    lastRegisterAttemptRef.current = now;
+      lastRegisterAttemptRef.current = now;
 
-    const trimmedName = name.trim();
-    const normalizedEmail = email.trim().toLowerCase();
-    const trimmedPhone = phone.trim();
-    const normalizedRole = normalizeRole(role);
-    const selectedMode = normalizeRole(state.mode);
+      const trimmedName = safeTrim(name);
+      const normalizedEmail = normalizeEmail(email);
+      const trimmedPhone = safeTrim(phone);
+      const cleanPassword = typeof password === 'string' ? password : '';
+      const normalizedRole = normalizeRole(role);
+      const selectedMode = normalizeRole(state.mode);
 
-    if (!trimmedName || !normalizedEmail || !trimmedPhone || !password) {
-      return {
-        success: false,
-        error: 'Please fill in all fields.',
-      };
-    }
+      if (!trimmedName || !normalizedEmail || !trimmedPhone || !cleanPassword) {
+        return {
+          success: false,
+          error: 'Please fill in all fields.',
+        };
+      }
 
-    if (!normalizedRole) {
-      return {
-        success: false,
-        error: 'Please choose a valid account type.',
-      };
-    }
+      if (!isValidEmail(normalizedEmail)) {
+        return {
+          success: false,
+          error: 'Please enter a valid email address.',
+        };
+      }
 
-    if (!selectedMode) {
-      return {
-        success: false,
-        error: 'Please choose whether you are signing up as a consumer or provider first.',
-      };
-    }
+      if (!normalizedRole) {
+        return {
+          success: false,
+          error: 'Please choose a valid account type.',
+        };
+      }
 
-    if (selectedMode !== normalizedRole) {
-      return {
-        success: false,
-        error: 'The selected sign-up role does not match the chosen account type.',
-      };
-    }
+      if (!selectedMode) {
+        return {
+          success: false,
+          error: 'Please choose whether you are signing up as a consumer or provider first.',
+        };
+      }
 
-    if (password.length < 6) {
-      return {
-        success: false,
-        error: 'Password must be at least 6 characters long.',
-      };
-    }
+      if (selectedMode !== normalizedRole) {
+        return {
+          success: false,
+          error: 'The selected sign-up role does not match the chosen account type.',
+        };
+      }
 
-    const demoEmails = DEMO_USERS.map((user) => user.email.toLowerCase());
+      if (cleanPassword.length < 6) {
+        return {
+          success: false,
+          error: 'Password must be at least 6 characters long.',
+        };
+      }
 
-    if (demoEmails.includes(normalizedEmail)) {
-      return {
-        success: false,
-        error: 'That demo account already exists. Please sign in instead.',
-      };
-    }
+      const demoEmails = DEMO_USERS.map((user) => user.email.toLowerCase());
 
-    const { data, error } = await supabase.auth.signUp({
-      email: normalizedEmail,
-      password,
-      options: {
-        data: {
-          full_name: trimmedName,
-          phone: trimmedPhone,
-          role: getDbRole(normalizedRole),
-        },
-      },
-    });
+      if (demoEmails.includes(normalizedEmail)) {
+        return {
+          success: false,
+          error: 'That demo account already exists. Please sign in instead.',
+        };
+      }
 
-    if (error || !data.user) {
-      console.error('SUPABASE SIGNUP ERROR:', {
-        error,
-        message: error?.message,
-        status: (error as any)?.status,
-        code: (error as any)?.code,
-        name: (error as any)?.name,
+      const { data, error } = await supabase.auth.signUp({
         email: normalizedEmail,
-        phone: trimmedPhone,
-        role: getDbRole(normalizedRole),
+        password: cleanPassword,
+        options: {
+          data: {
+            full_name: trimmedName,
+            phone: trimmedPhone,
+            role: getDbRole(normalizedRole),
+          },
+        },
       });
 
-      if (isRateLimitError(error)) {
+      if (error || !data.user) {
+        console.error('SUPABASE SIGNUP ERROR:', {
+          error,
+          message: (error as any)?.message,
+          status: (error as any)?.status,
+          code: (error as any)?.code,
+          name: (error as any)?.name,
+          email: normalizedEmail,
+          phone: trimmedPhone,
+          role: getDbRole(normalizedRole),
+        });
+
+        if (isRateLimitError(error)) {
+          return {
+            success: false,
+            error: 'Too many sign-up attempts. Please wait a few minutes and try again.',
+          };
+        }
+
+        const errorMessage = (error as any)?.message?.toLowerCase?.() || '';
+        const errorCode = (error as any)?.code?.toLowerCase?.() || '';
+
+        if (
+          errorMessage.includes('already registered') ||
+          errorMessage.includes('already exists') ||
+          errorCode.includes('user_already_exists') ||
+          errorCode.includes('email_exists')
+        ) {
+          return {
+            success: false,
+            error: 'This email address is already registered. Please sign in instead.',
+          };
+        }
+
         return {
           success: false,
-          error: 'Too many sign-up attempts. Please wait a few minutes and try again.',
+          error: getAuthErrorMessage(error, 'Unable to sign up.'),
         };
       }
 
-      const errorMessage = error?.message?.toLowerCase() || '';
-      const errorCode = (error as any)?.code?.toLowerCase?.() || '';
+      const sessionExists = !!data.session;
 
-      if (
-        errorMessage.includes('already registered') ||
-        errorMessage.includes('already exists') ||
-        errorCode.includes('user_already_exists') ||
-        errorCode.includes('email_exists')
-      ) {
-        return {
-          success: false,
-          error: 'This email address is already registered. Please sign in instead.',
+      if (sessionExists) {
+        const safeUser: SafeUser = {
+          id: data.user.id,
+          name: trimmedName,
+          email: normalizedEmail,
+          phone: trimmedPhone,
+          role: normalizedRole,
         };
+
+        setCurrentUser(safeUser);
+        setIsAuthenticated(true);
+        setIsDemo(false);
+
+        setState((s) => ({
+          ...s,
+          mode: normalizedRole,
+          screen: getHomeScreenForRole(normalizedRole),
+          selectedProvider: null,
+          activeJob: null,
+          panicActive: false,
+        }));
       }
 
       return {
+        success: true,
+        error: sessionExists
+          ? undefined
+          : 'Account created successfully. Please check your email to confirm your account before signing in.',
+      };
+    } catch (error) {
+      console.error('REGISTER UNEXPECTED ERROR:', error);
+      return {
         success: false,
-        error: error?.message || 'Unable to sign up.',
+        error: getAuthErrorMessage(error, 'Something went wrong while signing up.'),
       };
     }
-
-    const sessionExists = !!data.session;
-
-    if (sessionExists) {
-      const safeUser: SafeUser = {
-        id: data.user.id,
-        name: trimmedName,
-        email: normalizedEmail,
-        phone: trimmedPhone,
-        role: normalizedRole,
-      };
-
-      setCurrentUser(safeUser);
-      setIsAuthenticated(true);
-      setIsDemo(false);
-
-      setState((s) => ({
-        ...s,
-        mode: normalizedRole,
-        screen: getHomeScreenForRole(normalizedRole),
-        selectedProvider: null,
-        activeJob: null,
-        panicActive: false,
-      }));
-    }
-
-    return {
-      success: true,
-      error: sessionExists
-        ? undefined
-        : 'Account created successfully. Please check your email to confirm your account before signing in.',
-    };
   };
 
   const logout = async () => {
-    const isDemoUser = isDemo || currentUser?.id?.startsWith('demo-');
+    try {
+      const isDemoUser = isDemo || currentUser?.id?.startsWith('demo-');
 
-    if (!isDemoUser) {
-      await supabase.auth.signOut();
+      if (!isDemoUser) {
+        await supabase.auth.signOut();
+      }
+    } catch (error) {
+      console.error('LOGOUT ERROR:', error);
+    } finally {
+      setCurrentUser(null);
+      setIsAuthenticated(false);
+      setIsDemo(false);
+
+      setState({
+        mode: null,
+        screen: 'onboarding',
+        selectedProvider: null,
+        activeJob: null,
+        panicActive: false,
+      });
     }
-
-    setCurrentUser(null);
-    setIsAuthenticated(false);
-    setIsDemo(false);
-
-    setState({
-      mode: null,
-      screen: 'onboarding',
-      selectedProvider: null,
-      activeJob: null,
-      panicActive: false,
-    });
   };
 
   return (

@@ -5,7 +5,7 @@ import { useApp } from '../contexts/AppContext';
 export const AuthScreen: React.FC = () => {
   const app = useApp();
 
-  const { navigate, mode, isAuthenticated } = app;
+  const { navigate, mode } = app;
 
   const loginFn = typeof app.login === 'function' ? app.login : null;
   const registerFn = typeof app.register === 'function' ? app.register : null;
@@ -20,10 +20,6 @@ export const AuthScreen: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastSignupAttempt, setLastSignupAttempt] = useState(0);
 
-  // Database expects "customer" or "provider"
-  const authRole: 'customer' | 'provider' = mode === 'provider' ? 'provider' : 'customer';
-
-  // UI can still say "Consumer"
   const activeRole: 'consumer' | 'provider' = mode === 'provider' ? 'provider' : 'consumer';
 
   const demoCredentials = useMemo(
@@ -53,7 +49,10 @@ export const AuthScreen: React.FC = () => {
   const handleSignIn = async () => {
     resetFeedback();
 
-    if (!email.trim() || !password.trim()) {
+    const cleanEmail = email.trim();
+    const rawPassword = password;
+
+    if (!cleanEmail || !rawPassword) {
       setError('Please enter your email and password.');
       return;
     }
@@ -65,10 +64,18 @@ export const AuthScreen: React.FC = () => {
       return;
     }
 
+    console.log('AUTH SIGNIN FORM', {
+      email: cleanEmail,
+      passwordLength: rawPassword.length,
+      passwordStartsWithSpace: rawPassword.startsWith(' '),
+      passwordEndsWithSpace: rawPassword.endsWith(' '),
+      activeRole,
+    });
+
     setIsSubmitting(true);
 
     try {
-      const result = await loginFn(email.trim(), password);
+      const result = await loginFn(cleanEmail, rawPassword);
 
       if (!result?.success) {
         setError(result?.error || 'Unable to sign in.');
@@ -90,27 +97,32 @@ export const AuthScreen: React.FC = () => {
       return;
     }
 
-    if (!name.trim()) {
+    const cleanName = name.trim();
+    const cleanPhone = phone.trim();
+    const cleanEmail = email.trim();
+    const rawPassword = password;
+
+    if (!cleanName) {
       setError('Please enter your full name.');
       return;
     }
 
-    if (!phone.trim()) {
+    if (!cleanPhone) {
       setError('Please enter your phone number.');
       return;
     }
 
-    if (!email.trim()) {
+    if (!cleanEmail) {
       setError('Please enter your email address.');
       return;
     }
 
-    if (!password.trim()) {
+    if (!rawPassword) {
       setError('Please enter a password.');
       return;
     }
 
-    if (password.trim().length < 6) {
+    if (rawPassword.length < 6) {
       setError('Password must be at least 6 characters long.');
       return;
     }
@@ -122,17 +134,28 @@ export const AuthScreen: React.FC = () => {
       return;
     }
 
+    console.log('AUTH SIGNUP FORM', {
+      name: cleanName,
+      phone: cleanPhone,
+      email: cleanEmail,
+      passwordLength: rawPassword.length,
+      passwordStartsWithSpace: rawPassword.startsWith(' '),
+      passwordEndsWithSpace: rawPassword.endsWith(' '),
+      activeRole,
+    });
+
     setLastSignupAttempt(now);
     setIsSubmitting(true);
 
     try {
       const result = await registerFn(
-  name.trim(),
-  email.trim(),
-  phone.trim(),
-  password,
-  activeRole
-);
+        cleanName,
+        cleanEmail,
+        cleanPhone,
+        rawPassword,
+        activeRole
+      );
+
       if (!result?.success) {
         setError(result?.error || 'Unable to sign up.');
         return;
@@ -142,7 +165,7 @@ export const AuthScreen: React.FC = () => {
 
       if (result.error) {
         setMessage(result.error);
-      } else if (!isAuthenticated) {
+      } else {
         setMessage('Account created successfully. Please sign in to continue.');
       }
 
@@ -373,6 +396,7 @@ export const AuthScreen: React.FC = () => {
               {tab === 'signup' && (
                 <>
                   <label
+                    htmlFor="full-name"
                     style={{
                       display: 'block',
                       fontSize: 13,
@@ -383,14 +407,18 @@ export const AuthScreen: React.FC = () => {
                     Full name
                   </label>
                   <input
+                    id="full-name"
+                    name="fullName"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Your full name"
                     style={inputStyle}
                     disabled={isSubmitting}
+                    autoComplete="name"
                   />
 
                   <label
+                    htmlFor="phone"
                     style={{
                       display: 'block',
                       fontSize: 13,
@@ -401,16 +429,21 @@ export const AuthScreen: React.FC = () => {
                     Phone number
                   </label>
                   <input
+                    id="phone"
+                    name="phone"
+                    type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="e.g. 082 123 4567"
                     style={inputStyle}
                     disabled={isSubmitting}
+                    autoComplete="tel"
                   />
                 </>
               )}
 
               <label
+                htmlFor="email"
                 style={{
                   display: 'block',
                   fontSize: 13,
@@ -421,8 +454,13 @@ export const AuthScreen: React.FC = () => {
                 Email address
               </label>
               <input
+                id="email"
+                name="email"
                 type="email"
                 autoComplete="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
@@ -431,6 +469,7 @@ export const AuthScreen: React.FC = () => {
               />
 
               <label
+                htmlFor="password"
                 style={{
                   display: 'block',
                   fontSize: 13,
@@ -441,8 +480,13 @@ export const AuthScreen: React.FC = () => {
                 Password
               </label>
               <input
+                id="password"
+                name="password"
                 type="password"
                 autoComplete={tab === 'signin' ? 'current-password' : 'new-password'}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
