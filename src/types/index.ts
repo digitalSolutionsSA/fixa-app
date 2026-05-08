@@ -8,6 +8,9 @@ export type Screen =
   // Consumer
   | 'consumer-home'
   | 'find-provider'
+  | 'plumber-screen'
+  | 'electrician-screen'
+  | 'mechanic-screen'
   | 'job-in-progress'
   | 'provider-arrived'
   | 'consumer-bookings'
