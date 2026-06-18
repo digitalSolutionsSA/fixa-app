@@ -1,51 +1,88 @@
-import React from 'react';
-import { Navigation, Wrench, MapPin, AlertTriangle, MessageCircle, Phone, Briefcase } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Navigation, Wrench, MapPin, AlertTriangle, MessageCircle, Phone, Briefcase, Loader2 } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { AppHeader, ConsumerNav, RatingStars, Avt, PanicBanner } from '../../components/Shared';
 import { getSafeSelectedProvider } from './providers';
+import { getConsumerJobs, type DbJob } from '../../lib/jobs';
 
 export const JobInProgressScreen: React.FC = () => {
-  const { navigate, triggerPanic, selectedProvider, isDemo } = useApp();
-  const p = getSafeSelectedProvider(selectedProvider, isDemo);
+  const { navigate, triggerPanic, selectedProvider, isDemo, currentUser } = useApp();
+  const [activeJob, setActiveJob] = useState<DbJob | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  if (!p) {
+  useEffect(() => {
+    if (isDemo) { setLoading(false); return; }
+    if (!currentUser?.id) { setLoading(false); return; }
+
+    getConsumerJobs(currentUser.id).then((jobs) => {
+      const job = jobs.find((j) => j.status === 'active') ?? null;
+      setActiveJob(job);
+      setLoading(false);
+    });
+  }, [currentUser?.id, isDemo]);
+
+  const demoProvider = getSafeSelectedProvider(selectedProvider, isDemo);
+
+  const steps = [
+    { label: 'Job Confirmed',      time: '09:10', state: 'done'   },
+    { label: 'Provider On Route',  time: '09:35', state: 'done'   },
+    { label: 'Arrived',            time: null,    state: 'active' },
+    { label: 'Job Complete',       time: null,    state: 'idle'   },
+  ] as const;
+
+  if (loading) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
         <AppHeader title="Job in Progress" back="consumer-home" />
-        <div className="screen">
-          <div className="screen-content">
-            <div className="empty-state">
-              <Briefcase size={40} />
-              <div style={{ fontFamily: 'var(--font-head)', fontWeight: 700, fontSize: 16 }}>No active job</div>
-              <div style={{ fontSize: 13, color: 'var(--text-secondary)', textAlign: 'center', maxWidth: 320 }}>
-                Active jobs will appear here once a real booking has been created.
-              </div>
-              <button className="btn btn-primary" onClick={() => navigate('find-provider')}>Find a Provider</button>
-            </div>
+        <div className="screen"><div className="screen-content">
+          <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 32 }}>
+            <Loader2 size={20} color="var(--teal)" style={{ animation: 'spin 0.8s linear infinite' }} />
+            <span style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Loading…</span>
           </div>
-        </div>
+        </div></div>
         <ConsumerNav />
       </div>
     );
   }
 
-  const steps = [
-    { label: 'Job Confirmed', time: '09:10', state: 'done' },
-    { label: 'Provider On Route', time: '09:35', state: 'done' },
-    { label: 'Arrived', time: null, state: 'active' },
-    { label: 'Job Complete', time: null, state: 'idle' },
-  ] as const;
+  // No active job
+  if (!isDemo && !activeJob) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+        <AppHeader title="Job in Progress" back="consumer-home" />
+        <div className="screen"><div className="screen-content">
+          <div className="empty-state">
+            <Briefcase size={40} />
+            <div style={{ fontFamily: 'var(--font-head)', fontWeight: 700, fontSize: 16 }}>No active job</div>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)', textAlign: 'center', maxWidth: 320 }}>
+              Once a provider accepts your request, your active job will appear here.
+            </div>
+            <button className="btn btn-primary" onClick={() => navigate('find-provider')}>Find a Provider</button>
+          </div>
+        </div></div>
+        <ConsumerNav />
+      </div>
+    );
+  }
+
+  // Display name/initials/trade — from real job or demo provider
+  const providerName  = isDemo ? demoProvider?.name  ?? 'Provider'   : activeJob!.provider_name;
+  const providerTrade = isDemo ? demoProvider?.trade  ?? ''           : activeJob!.provider_trade;
+  const providerPrice = isDemo ? demoProvider?.priceFrom ?? 0         : activeJob!.price;
+  const initials = providerName.trim().split(' ').map((w: string) => w[0] || '').join('').slice(0, 2).toUpperCase();
+  const demoRating = demoProvider?.rating ?? 0;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <AppHeader
         title="Job in Progress"
-        back="find-provider"
+        back="consumer-bookings"
         right={<button className="back-btn"><Navigation size={16} color="white" /></button>}
       />
       <PanicBanner />
 
       <div className="screen">
+        {/* Map placeholder */}
         <div className="map-bg" style={{ height: 220, margin: '16px', borderRadius: 'var(--radius-md)', flexShrink: 0 }}>
           <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
             <polyline points="60,180 110,130 170,90 220,60" stroke="var(--teal)" strokeWidth="3" strokeDasharray="7,5" fill="none" strokeLinecap="round" />
@@ -61,7 +98,7 @@ export const JobInProgressScreen: React.FC = () => {
             </div>
           </div>
           <div style={{ position: 'absolute', top: 12, right: 12, width: 48, height: 48, borderRadius: '50%', background: 'var(--teal)', border: '3px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-lg)' }}>
-            <span style={{ fontFamily: 'var(--font-head)', fontWeight: 800, color: 'white', fontSize: 14 }}>{p.initials}</span>
+            <span style={{ fontFamily: 'var(--font-head)', fontWeight: 800, color: 'white', fontSize: 14 }}>{initials}</span>
           </div>
           <div style={{ position: 'absolute', bottom: 12, left: 12, background: 'white', borderRadius: 10, padding: '6px 12px', boxShadow: 'var(--shadow-md)' }}>
             <span style={{ fontFamily: 'var(--font-head)', fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>
@@ -71,13 +108,19 @@ export const JobInProgressScreen: React.FC = () => {
         </div>
 
         <div className="screen-content" style={{ paddingTop: 0 }}>
+          {/* Progress steps */}
           <div className="card animate-in">
             <div style={{ fontFamily: 'var(--font-head)', fontWeight: 900, fontSize: 18 }}>
-              {p.name.split("'")[0].split(' ')[0]} is on the way
+              {providerName.split("'")[0].split(' ')[0]} is on the way
             </div>
             <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 3 }}>
               Arriving in <strong style={{ color: 'var(--green)' }}>12 minutes</strong>
             </div>
+            {!isDemo && activeJob && (
+              <div style={{ marginTop: 6, fontSize: 13, color: 'var(--text-muted)' }}>
+                {activeJob.title} · {activeJob.location}
+              </div>
+            )}
             <div className="divider" />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {steps.map((s, i) => (
@@ -95,37 +138,38 @@ export const JobInProgressScreen: React.FC = () => {
             </div>
           </div>
 
+          {/* Provider card */}
           <div className="card d1 animate-in" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <Avt initials={p.initials} size={52} />
+            <Avt initials={initials} size={52} />
             <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: 'var(--font-head)', fontWeight: 800, fontSize: 15 }}>{p.name}</div>
-              <RatingStars rating={p.rating} />
+              <div style={{ fontFamily: 'var(--font-head)', fontWeight: 800, fontSize: 15 }}>{providerName}</div>
+              {isDemo && demoRating > 0 && <RatingStars rating={demoRating} />}
               <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-                {p.verified && <span className="badge badge-green" style={{ fontSize: 10 }}>✓ ID Verified</span>}
-                <span className="badge badge-gray" style={{ fontSize: 10 }}>{p.trade}</span>
+                <span className="badge badge-gray" style={{ fontSize: 10 }}>{providerTrade}</span>
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontFamily: 'var(--font-head)', fontWeight: 900, fontSize: 18 }}>R{p.priceFrom}</div>
+              <div style={{ fontFamily: 'var(--font-head)', fontWeight: 900, fontSize: 18 }}>R{providerPrice}</div>
               <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>In-App</div>
             </div>
           </div>
 
+          {/* Panic button */}
           <button onClick={triggerPanic} className="btn btn-danger btn-full panic-pulse d2 animate-in" style={{ fontSize: 16, padding: '18px', gap: 10 }}>
             <AlertTriangle size={22} /> Panic / Emergency
           </button>
-
           <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', marginTop: -6 }}>
             Tap if you feel unsafe – help will be sent immediately. No guarantee of response times.
           </p>
 
+          {/* Actions */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
             {[
               { icon: <MessageCircle size={22} />, label: 'Chat' },
               { icon: <Phone size={22} />, label: 'Call' },
               { icon: <Navigation size={22} />, label: 'Track' },
             ].map((a) => (
-              <button key={a.label} className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: 'pointer', border: 'none', padding: '16px 8px', transition: 'box-shadow 0.2s' }}>
+              <button key={a.label} className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: 'pointer', border: 'none', padding: '16px 8px' }}>
                 <div style={{ color: 'var(--teal)' }}>{a.icon}</div>
                 <span style={{ fontFamily: 'var(--font-head)', fontWeight: 700, fontSize: 13, color: 'var(--text-secondary)' }}>{a.label}</span>
               </button>
@@ -133,6 +177,8 @@ export const JobInProgressScreen: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       <ConsumerNav />
     </div>
   );

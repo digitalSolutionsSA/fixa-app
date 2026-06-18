@@ -16,6 +16,8 @@ export type Screen =
   | 'consumer-bookings'
   | 'consumer-safety'
   | 'consumer-profile'
+  | 'book-job'
+  | 'notifications'
   // Provider
   | 'provider-home'
   | 'provider-job-request'

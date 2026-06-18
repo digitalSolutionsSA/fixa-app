@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Briefcase, DollarSign, User, MapPin, Shield, Bell, ChevronLeft, Info, AlertTriangle, Star, BarChart2 } from 'lucide-react';
+import { Home, Briefcase, DollarSign, User, MapPin, Shield, Bell, ChevronLeft, AlertTriangle, Star, BarChart2 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import type { Screen } from '../types';
 
@@ -26,12 +26,23 @@ export const Avt: React.FC<{ initials: string; size?: number; bg?: string }> = (
   </div>
 );
 
-export const NotifBell: React.FC<{ count?: number }> = ({ count = 0 }) => (
-  <div style={{ position:'relative', cursor:'pointer' }}>
-    <Bell size={22} color="white" />
-    {count > 0 && <span style={{ position:'absolute', top:-4, right:-4, background:'var(--red-panic)', color:'white', fontSize:9, fontWeight:800, width:15, height:15, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--font-head)' }}>{count}</span>}
-  </div>
-);
+export const NotifBell: React.FC<{ count?: number }> = ({ count }) => {
+  const { navigate, unreadNotifCount } = useApp();
+  const display = count !== undefined ? count : unreadNotifCount;
+  return (
+    <button
+      onClick={() => navigate('notifications')}
+      style={{ position:'relative', cursor:'pointer', background:'none', border:'none', padding:4 }}
+    >
+      <Bell size={22} color="white" />
+      {display > 0 && (
+        <span style={{ position:'absolute', top:-2, right:-2, background:'var(--red-panic)', color:'white', fontSize:9, fontWeight:800, minWidth:15, height:15, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--font-head)', padding:'0 3px' }}>
+          {display > 99 ? '99+' : display}
+        </span>
+      )}
+    </button>
+  );
+};
 
 export const AppHeader: React.FC<{
   title?: string;
@@ -53,7 +64,7 @@ export const AppHeader: React.FC<{
           <h2 style={{ fontFamily:'var(--font-head)', fontWeight:900, fontSize:19, color:'white', flex:1 }}>{title}</h2>
         )}
         {right && <div style={{ marginLeft:'auto' }}>{right}</div>}
-        {!right && !showLogo && <Info size={18} color="rgba(255,255,255,0.5)" style={{ marginLeft:'auto' }} />}
+        {!right && !showLogo && <NotifBell />}
       </div>
       {sub && <div style={{ padding:'0 20px 14px' }}>{sub}</div>}
     </div>
@@ -96,10 +107,11 @@ export const ConsumerNav: React.FC = () => {
 };
 
 export const ProviderNav: React.FC = () => {
-  const { screen, navigate } = useApp();
-  const items: { label:string; icon:React.ReactNode; screen:Screen; badge?:number }[] = [
+  const { screen, navigate, isDemo } = useApp();
+  // Job badge comes from ProviderHomeScreen stats — use 0 here, each screen updates its own state
+  const items: { label:string; icon:React.ReactNode; screen:Screen }[] = [
     { label:'Home',     icon:<Home size={22}/>,       screen:'provider-home' },
-    { label:'Jobs',     icon:<Briefcase size={22}/>,  screen:'provider-jobs',     badge:2 },
+    { label:'Jobs',     icon:<Briefcase size={22}/>,  screen:'provider-jobs' },
     { label:'Earnings', icon:<DollarSign size={22}/>, screen:'provider-earnings' },
     { label:'Ranking',  icon:<BarChart2 size={22}/>,  screen:'provider-ranking' },
     { label:'Profile',  icon:<User size={22}/>,       screen:'provider-profile' },
@@ -108,11 +120,7 @@ export const ProviderNav: React.FC = () => {
     <div className="bottom-nav">
       {items.map(i => (
         <button key={i.screen} className={`nav-item ${screen===i.screen?'active':''}`} onClick={() => navigate(i.screen)}>
-          <div style={{ position:'relative' }}>
-            {i.icon}
-            {i.badge && <span className="nav-badge">{i.badge}</span>}
-          </div>
-          <span>{i.label}</span>
+          {i.icon}<span>{i.label}</span>
         </button>
       ))}
     </div>

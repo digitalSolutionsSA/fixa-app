@@ -184,6 +184,23 @@ export const ConsumerProfileScreen: React.FC = () => {
     safety: true,
   });
 
+  const [bookingCount, setBookingCount] = useState(0);
+  const [totalSpent, setTotalSpent]     = useState(0);
+
+  useEffect(() => {
+    if (!currentUser?.id || currentUser.id.startsWith('demo-')) return;
+    supabase
+      .from('jobs')
+      .select('price, status')
+      .eq('consumer_id', currentUser.id)
+      .then(({ data }) => {
+        const rows = data ?? [];
+        setBookingCount(rows.length);
+        const spent = rows.filter(r => r.status === 'completed').reduce((s: number, r: any) => s + Number(r.price), 0);
+        setTotalSpent(spent);
+      });
+  }, [currentUser?.id]);
+
   // ── Load from Supabase ──────────────────────────────────────────────────────
   useEffect(() => {
     const load = async () => {
@@ -302,7 +319,7 @@ export const ConsumerProfileScreen: React.FC = () => {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
         {(isDemo
           ? [{ val: '8', l: 'Bookings' }, { val: '4.9', l: 'Avg Rating' }, { val: 'R3,850', l: 'Total Spent' }]
-          : [{ val: '0', l: 'Bookings' }, { val: '—', l: 'Avg Rating' }, { val: 'R0', l: 'Total Spent' }]
+          : [{ val: String(bookingCount), l: 'Bookings' }, { val: '—', l: 'Avg Rating' }, { val: `R${totalSpent}`, l: 'Total Spent' }]
         ).map((s, i) => (
           <div key={i} className="stat-card" style={{ textAlign: 'center' }}>
             <div className="stat-num" style={{ color: 'var(--teal)', textAlign: 'center' }}>{s.val}</div>

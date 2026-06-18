@@ -16,11 +16,11 @@ import {
 import { ProfileMenuButton, BackSectionHeader, ToggleRow } from './ProviderShared';
 
 export const ProviderProfileScreen: React.FC = () => {
-  const { navigate, setMode, user, currentUser } = useApp() as any;
+  const { navigate, setMode, currentUser, logout } = useApp() as any;
 
-  const resolvedName  = resolveUserName(user);
-  const resolvedPhone = resolveUserPhone(user);
-  const resolvedEmail = resolveUserEmail(user);
+  const resolvedName  = resolveUserName(currentUser);
+  const resolvedPhone = resolveUserPhone(currentUser);
+  const resolvedEmail = resolveUserEmail(currentUser);
 
   const [section, setSection]         = useState<ProfileSection>('menu');
   const [saveMessage, setSaveMessage] = useState('');
@@ -74,10 +74,43 @@ export const ProviderProfileScreen: React.FC = () => {
     newRequests: true, jobUpdates: true, payoutAlerts: true, rankingUpdates: true, marketing: false,
   });
   const [currentPlan, setCurrentPlan] = useState('Free Tier');
+  const [available, setAvailable] = useState(true);
+  const [togglingAvail, setTogglingAvail] = useState(false);
+  const [jobCount, setJobCount] = useState(0);
+  const [rating,   setRating]   = useState(0);
+
+  // Load availability + stats
+  useEffect(() => {
+    if (!currentUser?.id || currentUser.id.startsWith('demo-')) return;
+    supabase
+      .from('profiles')
+      .select('available, job_count, rating')
+      .eq('id', currentUser.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setAvailable(data?.available ?? true);
+        setJobCount(data?.job_count ?? 0);
+        setRating(data?.rating ?? 0);
+      });
+  }, [currentUser?.id]);
+
+  const toggleAvailability = async () => {
+    if (!currentUser?.id || currentUser.id.startsWith('demo-')) return;
+    setTogglingAvail(true);
+    const next = !available;
+    setAvailable(next);
+    await supabase.from('profiles').update({ available: next }).eq('id', currentUser.id);
+    setTogglingAvail(false);
+    showSaved(next ? 'You are now visible to customers' : 'You are now hidden from search');
+  };
+
+  const score = Math.round(Math.min((rating / 5) * 50 + Math.min(jobCount / 20, 1) * 30, 100));
 
   const stats = useMemo(() => [
-    { v: '0', l: 'Jobs' }, { v: '0.0', l: 'Rating' }, { v: '0', l: 'Score' },
-  ], []);
+    { v: String(jobCount), l: 'Jobs' },
+    { v: rating > 0 ? rating.toFixed(1) : '—', l: 'Rating' },
+    { v: String(score), l: 'Score' },
+  ], [jobCount, rating, score]);
 
   const showSaved = (msg: string) => {
     setSaveMessage(msg);
@@ -143,6 +176,25 @@ export const ProviderProfileScreen: React.FC = () => {
           </div>
         ))}
       </div>
+      {/* Availability toggle */}
+      <div
+        className="card"
+        style={{ display:'flex', alignItems:'center', gap:14, marginBottom:10, cursor:'pointer' }}
+        onClick={toggleAvailability}
+      >
+        <div style={{ flex:1 }}>
+          <div style={{ fontFamily:'var(--font-head)', fontWeight:700, fontSize:15 }}>
+            {available ? '🟢 Available for Jobs' : '🔴 Currently Unavailable'}
+          </div>
+          <div style={{ fontSize:12, color:'var(--text-secondary)', marginTop:2 }}>
+            {available ? 'Customers can find and book you.' : 'You are hidden from search results.'}
+          </div>
+        </div>
+        <div style={{ width:44, height:26, borderRadius:13, background:available?'var(--teal)':'var(--border)', position:'relative', transition:'background 0.2s', flexShrink:0, opacity:togglingAvail?0.6:1 }}>
+          <div style={{ position:'absolute', top:3, left:available?21:3, width:20, height:20, borderRadius:'50%', background:'white', transition:'left 0.2s', boxShadow:'0 1px 4px rgba(0,0,0,0.18)' }} />
+        </div>
+      </div>
+
       <ProfileMenuButton icon={<Pencil size={20} color="#f59e0b" />}     label="Edit Profile"            onClick={() => setSection('edit-profile')} />
       <ProfileMenuButton icon={<FileText size={20} color="#64748b" />}   label="Verification Documents"  onClick={() => setSection('verification')} />
       <ProfileMenuButton icon={<CreditCard size={20} color="#eab308" />} label="Subscription & Billing"  onClick={() => setSection('billing')} />
@@ -156,7 +208,7 @@ export const ProviderProfileScreen: React.FC = () => {
       <button
         className="btn btn-full"
         style={{ background: 'var(--red-light)', color: 'var(--red-panic)', fontFamily: 'var(--font-head)', fontWeight: 800, border: '2px solid var(--red-panic)', borderRadius: 'var(--radius-sm)', padding: '13px', fontSize: 14, cursor: 'pointer', marginTop: 8 }}
-        onClick={() => { setMode(null); navigate('mode-select'); }}
+        onClick={() => logout()}
       >
         Sign Out
       </button>

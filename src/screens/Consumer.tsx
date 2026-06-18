@@ -21,6 +21,7 @@
  */
 
 export { ConsumerHomeScreen }     from './consumer/ConsumerHomeScreen';
+export { BookJobScreen }          from './consumer/BookJobScreen';
 export { FindProviderScreen }     from './consumer/FindProviderScreen';
 export { JobInProgressScreen }    from './consumer/JobInProgressScreen';
 export { ProviderArrivedScreen }  from './consumer/ProviderArrivedScreen';

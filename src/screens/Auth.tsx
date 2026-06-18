@@ -1,6 +1,42 @@
 import React, { useMemo, useState } from 'react';
 import { ArrowLeft, LogIn, UserPlus } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
+import { supabase } from '../lib/supabase';
+
+const ForgotPasswordLink: React.FC<{ email: string }> = ({ email }) => {
+  const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+
+  const handle = async () => {
+    const trimmed = email.trim();
+    if (!trimmed) { alert('Enter your email address first.'); return; }
+    setSending(true);
+    await supabase.auth.resetPasswordForEmail(trimmed, {
+      redirectTo: window.location.origin,
+    });
+    setSending(false);
+    setSent(true);
+  };
+
+  if (sent) return (
+    <p style={{ textAlign:'center', fontSize:13, color:'var(--teal)', marginBottom:10 }}>
+      ✅ Password reset email sent. Check your inbox.
+    </p>
+  );
+
+  return (
+    <p style={{ textAlign:'right', marginBottom:10 }}>
+      <button
+        type="button"
+        onClick={handle}
+        disabled={sending}
+        style={{ background:'none', border:'none', color:'var(--teal)', fontSize:13, cursor:'pointer', fontWeight:700, padding:0 }}
+      >
+        {sending ? 'Sending…' : 'Forgot password?'}
+      </button>
+    </p>
+  );
+};
 
 export const AuthScreen: React.FC = () => {
   const app = useApp();
@@ -524,6 +560,10 @@ export const AuthScreen: React.FC = () => {
                 >
                   {message}
                 </div>
+              )}
+
+              {tab === 'signin' && (
+                <ForgotPasswordLink email={email} />
               )}
 
               <button

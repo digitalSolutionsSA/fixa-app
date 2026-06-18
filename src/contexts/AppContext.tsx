@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { getUnreadCount } from '../lib/notifications';
 import type { AppState, Screen, Provider, Job, UserMode } from '../types';
 
 type DemoRole = 'consumer' | 'provider';
@@ -24,6 +25,9 @@ interface AppContextType extends AppState {
   currentUser: SafeUser | null;
   isAuthenticated: boolean;
   isDemo: boolean;
+  sessionLoading: boolean;
+  unreadNotifCount: number;
+  refreshNotifCount: () => Promise<void>;
   navigate: (screen: Screen) => void;
   setMode: (mode: UserMode) => void;
   selectProvider: (p: Provider | null) => void;
@@ -166,7 +170,76 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentUser, setCurrentUser] = useState<SafeUser | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isDemo, setIsDemo] = useState(false);
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const lastRegisterAttemptRef = useRef(0);
+  const realtimeChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  const refreshNotifCount = async () => {
+    const id = currentUser?.id;
+    if (!id || id.startsWith('demo-')) return;
+    const count = await getUnreadCount(id);
+    setUnreadNotifCount(count);
+  };
+
+  const subscribeToNotifications = (userId: string) => {
+    if (realtimeChannelRef.current) {
+      supabase.removeChannel(realtimeChannelRef.current);
+    }
+    const channel = supabase
+      .channel(`notif-${userId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
+        () => { setUnreadNotifCount((n) => n + 1); }
+      )
+      .subscribe();
+    realtimeChannelRef.current = channel;
+  };
+
+  // Restore session on app load
+  useEffect(() => {
+    const restoreSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const user = session.user;
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('id, full_name, email, phone, role')
+            .eq('id', user.id)
+            .maybeSingle();
+
+          const role = normalizeRole(profile?.role) || normalizeRole(user.user_metadata?.role);
+          if (role) {
+            const safeUser: SafeUser = {
+              id: user.id,
+              name: profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+              email: profile?.email || user.email || '',
+              phone: profile?.phone || user.user_metadata?.phone || '',
+              role,
+            };
+            setCurrentUser(safeUser);
+            setIsAuthenticated(true);
+            setIsDemo(false);
+            setState((s) => ({ ...s, mode: role, screen: getHomeScreenForRole(role) }));
+            const count = await getUnreadCount(user.id);
+            setUnreadNotifCount(count);
+            subscribeToNotifications(user.id);
+          }
+        }
+      } catch {
+        // Silently fail — user will just see onboarding
+      } finally {
+        setSessionLoading(false);
+      }
+    };
+
+    restoreSession();
+    return () => {
+      if (realtimeChannelRef.current) supabase.removeChannel(realtimeChannelRef.current);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const navigate = (screen: Screen) => {
     setState((s) => ({ ...s, screen }));
@@ -353,6 +426,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeJob: null,
         panicActive: false,
       }));
+
+      getUnreadCount(data.user.id).then(setUnreadNotifCount);
+      subscribeToNotifications(data.user.id);
 
       return { success: true };
     } catch (error) {
@@ -546,6 +622,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentUser(null);
       setIsAuthenticated(false);
       setIsDemo(false);
+      setUnreadNotifCount(0);
+      if (realtimeChannelRef.current) {
+        supabase.removeChannel(realtimeChannelRef.current);
+        realtimeChannelRef.current = null;
+      }
 
       setState({
         mode: null,
@@ -564,6 +645,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currentUser,
         isAuthenticated,
         isDemo,
+        sessionLoading,
+        unreadNotifCount,
+        refreshNotifCount,
         navigate,
         setMode,
         selectProvider,

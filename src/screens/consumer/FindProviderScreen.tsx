@@ -211,7 +211,7 @@ export const FindProviderScreen: React.FC = () => {
           )}
 
           {!isLoading && displayed.map((p) => (
-            <button key={p.id} className="provider-row" style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }} onClick={() => { selectProvider(p); navigate('job-in-progress'); }}>
+            <button key={p.id} className="provider-row" style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }} onClick={() => { selectProvider(p); navigate('book-job'); }}>
               <Avt initials={p.initials} size={52} />
               <div style={{ flex: 1, textAlign: 'left' }}>
                 <div style={{ fontFamily: 'var(--font-head)', fontWeight: 800, fontSize: 15 }}>{p.name}</div>
@@ -230,7 +230,7 @@ export const FindProviderScreen: React.FC = () => {
           ))}
 
           {isDemo && (
-            <button className="btn btn-primary btn-full btn-lg" onClick={() => { selectProvider(PROVIDERS[0]); navigate('job-in-progress'); }}>
+            <button className="btn btn-primary btn-full btn-lg" onClick={() => { selectProvider(PROVIDERS[0]); navigate('book-job'); }}>
               Book a Provider
             </button>
           )}
