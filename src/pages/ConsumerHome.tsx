@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Wrench, Zap, Car, Shield, ChevronRight, AlertTriangle,
+  Wrench, Zap, Car, Shield, ChevronRight, AlertTriangle, MoreHorizontal,
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { supabase } from '../lib/supabase';
@@ -85,10 +85,11 @@ export function ConsumerHome() {
 
   // Each tile navigates to its OWN dedicated screen — no sessionStorage needed
   const cats = [
-    { icon: <Wrench size={28} color="var(--teal)" />,     label: 'Plumber',     sub: 'Fast & reliable',  screen: 'plumber-screen' },
-    { icon: <Zap size={28} color="var(--yellow-dark)" />, label: 'Electrician', sub: 'Certified pros',   screen: 'electrician-screen' },
-    { icon: <Car size={28} color="var(--navy)" />,        label: 'Mechanic',    sub: 'Mobile & trusted', screen: 'mechanic-screen' },
-  ];
+    { icon: <Wrench size={28} color="var(--teal)" />,          label: 'Plumber',     sub: 'Fast & reliable',  screen: 'plumber-screen' },
+    { icon: <Zap size={28} color="var(--yellow-dark)" />,      label: 'Electrician', sub: 'Certified pros',   screen: 'electrician-screen' },
+    { icon: <Car size={28} color="var(--navy)" />,             label: 'Mechanic',    sub: 'Mobile & trusted', screen: 'mechanic-screen' },
+    { icon: <MoreHorizontal size={28} color="var(--text-secondary)" />, label: 'Other', sub: 'Handyman & more', screen: 'other-screen' },
+  ] as const;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
@@ -109,19 +110,19 @@ export function ConsumerHome() {
       <div className="screen">
         <div className="screen-content">
 
-          {/* 3-column category grid — each navigates to its own screen */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+          {/* 2x2 category grid — each navigates to its own screen */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             {cats.map((c) => (
               <button
                 key={c.label}
                 onClick={() => navigate(c.screen as any)}
-                style={{ background: 'white', border: '1.5px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '20px 12px', cursor: 'pointer', textAlign: 'left', boxShadow: 'var(--shadow-sm)', transition: 'all 0.2s' }}
+                style={{ background: 'white', border: '1.5px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '20px 16px', cursor: 'pointer', textAlign: 'left', boxShadow: 'var(--shadow-sm)', transition: 'all 0.2s' }}
                 onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'var(--shadow-md)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; e.currentTarget.style.transform = 'translateY(0)'; }}
               >
                 <div style={{ marginBottom: 10 }}>{c.icon}</div>
-                <div style={{ fontFamily: 'var(--font-head)', fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>{c.label}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>{c.sub}</div>
+                <div style={{ fontFamily: 'var(--font-head)', fontWeight: 800, fontSize: 15, color: 'var(--text-primary)' }}>{c.label}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>{c.sub}</div>
               </button>
             ))}
           </div>
