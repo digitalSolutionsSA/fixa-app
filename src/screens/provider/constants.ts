@@ -2,7 +2,7 @@ import React from 'react';
 
 // ── Trade categories ──────────────────────────────────────────────────────────
 
-export const TRADE_CATEGORIES = ['Plumber', 'Electrician', 'Mechanic'] as const;
+export const TRADE_CATEGORIES = ['Plumber', 'Electrician', 'Mechanic', 'Other'] as const;
 export type TradeCategory = typeof TRADE_CATEGORIES[number];
 
 // ── Shared empty/default data ─────────────────────────────────────────────────

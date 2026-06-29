@@ -15,6 +15,11 @@ const JOB_TYPES = [
   'Light installation',
   'Car service / maintenance',
   'Tyre change',
+  'Painting',
+  'Garden / landscaping',
+  'Cleaning',
+  'Carpentry / woodwork',
+  'Tiling / flooring',
   'General repairs',
   'Other',
 ];

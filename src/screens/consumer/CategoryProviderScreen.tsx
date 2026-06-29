@@ -220,3 +220,7 @@ export const ElectricianScreen: React.FC = () => (
 export const MechanicScreen: React.FC = () => (
   <CategoryProviderScreen trade="Mechanic" title="Mechanics Near You" backScreen="consumer-home" />
 );
+
+export const OtherScreen: React.FC = () => (
+  <CategoryProviderScreen trade="Other" title="Other Services Near You" backScreen="consumer-home" />
+);

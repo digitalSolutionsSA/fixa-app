@@ -13,11 +13,11 @@ export const ConsumerHomeScreen: React.FC = () => {
   const firstName = getFirstName(currentUser?.name);
 
   const cats = [
-    { icon: <Wrench size={28} color="var(--teal)" />, label: 'Plumber', sub: 'Fast & reliable' },
-    { icon: <Zap size={28} color="var(--yellow-dark)" />, label: 'Electrician', sub: 'Certified pros' },
-    { icon: <Car size={28} color="var(--navy)" />, label: 'Mechanic', sub: 'Mobile & trusted' },
-    { icon: <MoreHorizontal size={28} color="var(--text-secondary)" />, label: 'More Services', sub: 'View all' },
-  ];
+    { icon: <Wrench size={28} color="var(--teal)" />, label: 'Plumber', sub: 'Fast & reliable', screen: 'plumber-screen' },
+    { icon: <Zap size={28} color="var(--yellow-dark)" />, label: 'Electrician', sub: 'Certified pros', screen: 'electrician-screen' },
+    { icon: <Car size={28} color="var(--navy)" />, label: 'Mechanic', sub: 'Mobile & trusted', screen: 'mechanic-screen' },
+    { icon: <MoreHorizontal size={28} color="var(--text-secondary)" />, label: 'Other', sub: 'Handyman & more', screen: 'other-screen' },
+  ] as const;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
@@ -45,7 +45,7 @@ export const ConsumerHomeScreen: React.FC = () => {
             {cats.map((c) => (
               <button
                 key={c.label}
-                onClick={() => navigate('find-provider')}
+                onClick={() => navigate(c.screen as any)}
                 style={{ background: 'white', border: '1.5px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '20px 16px', cursor: 'pointer', textAlign: 'left', boxShadow: 'var(--shadow-sm)', transition: 'all 0.2s' }}
                 onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'var(--shadow-md)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; e.currentTarget.style.transform = 'translateY(0)'; }}

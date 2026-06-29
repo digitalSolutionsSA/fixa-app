@@ -26,6 +26,7 @@ import {
   PlumberScreen,
   ElectricianScreen,
   MechanicScreen,
+  OtherScreen,
 } from './screens/consumer/CategoryProviderScreen';
 
 const LoadingScreen: React.FC = () => (
@@ -55,6 +56,7 @@ const ScreenRouter: React.FC = () => {
     'plumber-screen':     <PlumberScreen />,
     'electrician-screen': <ElectricianScreen />,
     'mechanic-screen':    <MechanicScreen />,
+    'other-screen':       <OtherScreen />,
     'book-job':           <BookJobScreen />,
     'job-in-progress':    <JobInProgressScreen />,
     'provider-arrived':   <ProviderArrivedScreen />,
