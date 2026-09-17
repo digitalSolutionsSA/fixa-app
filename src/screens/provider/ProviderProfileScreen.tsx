@@ -7,6 +7,7 @@ import {
 import { useApp } from '../../contexts/AppContext';
 import { supabase } from '../../lib/supabase';
 import { ProviderNav, Avt } from '../../components/Shared';
+import { getCurrentDeviceLocation, LocationError } from '../../lib/location';
 import {
   EMPTY_VERIFICATION_DOCS, plans, getInitials, resolveUserName,
   resolveUserPhone, resolveUserEmail, ProfileSection, NotificationPrefs,
@@ -28,8 +29,10 @@ export const ProviderProfileScreen: React.FC = () => {
   const [isLoading, setIsLoading]     = useState(true);
 
   const [profile, setProfile] = useState<ProviderProfileForm>({
-    fullName: '', tradeCategory: '', phone: '', email: '', bio: '', area: '',
+    fullName: '', tradeCategory: '', phone: '', email: '', bio: '', area: '', latitude: null, longitude: null,
   });
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationError, setLocationError] = useState('');
 
   // ── Load from Supabase ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -42,14 +45,14 @@ export const ProviderProfileScreen: React.FC = () => {
       }
 
       if (!userId || userId.startsWith('demo-')) {
-        setProfile({ fullName: resolvedName || '', tradeCategory: '', phone: resolvedPhone || '', email: resolvedEmail || '', bio: '', area: '' });
+        setProfile({ fullName: resolvedName || '', tradeCategory: '', phone: resolvedPhone || '', email: resolvedEmail || '', bio: '', area: '', latitude: null, longitude: null });
         setIsLoading(false);
         return;
       }
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('full_name, email, phone, trade, bio, area')
+        .select('full_name, email, phone, trade, bio, area, latitude, longitude')
         .eq('id', userId)
         .maybeSingle();
 
@@ -63,6 +66,8 @@ export const ProviderProfileScreen: React.FC = () => {
         email:         data?.email     || resolvedEmail || '',
         bio:           data?.bio       || '',
         area:          data?.area      || '',
+        latitude:      data?.latitude  ?? null,
+        longitude:     data?.longitude ?? null,
       });
       setIsLoading(false);
     };
@@ -154,6 +159,8 @@ export const ProviderProfileScreen: React.FC = () => {
         trade:      profile.tradeCategory,   // stores exact value: "Plumber" | "Electrician" | "Mechanic"
         bio:        profile.bio,
         area:       profile.area,
+        latitude:   profile.latitude,
+        longitude:  profile.longitude,
         updated_at: new Date().toISOString(),
       })
       .eq('id', userId);
@@ -161,6 +168,19 @@ export const ProviderProfileScreen: React.FC = () => {
     showSaved(error ? 'Error saving profile. Please try again.' : 'Profile updated successfully');
     setIsSaving(false);
   }, [currentUser?.id, profile]);
+
+  const useCurrentLocation = useCallback(async () => {
+    setIsLocating(true);
+    setLocationError('');
+    try {
+      const loc = await getCurrentDeviceLocation();
+      setProfile((p) => ({ ...p, area: loc.area, latitude: loc.latitude, longitude: loc.longitude }));
+    } catch (err) {
+      setLocationError(err instanceof LocationError ? err.message : 'Could not get your location. Try again.');
+    } finally {
+      setIsLocating(false);
+    }
+  }, []);
 
   const displayTrade = profile.tradeCategory || 'New Provider';
 
@@ -276,7 +296,30 @@ export const ProviderProfileScreen: React.FC = () => {
             <div style={{ height: 14 }} />
 
             <label style={labelStyle}>Primary Service Area</label>
-            <input style={inputStyle} value={profile.area} onChange={(e) => updateField('area', e.target.value)} placeholder="e.g. Pretoria East" />
+            <input
+              style={inputStyle}
+              value={profile.area}
+              onChange={(e) => { updateField('area', e.target.value); updateField('latitude', null); updateField('longitude', null); }}
+              placeholder="e.g. Pretoria East"
+            />
+
+            <button
+              type="button"
+              className="btn btn-secondary btn-full"
+              style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+              onClick={useCurrentLocation}
+              disabled={isLocating}
+            >
+              {isLocating
+                ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Getting your location…</>
+                : <>📍 Use My Current Location</>}
+            </button>
+            {locationError && (
+              <div style={{ fontSize: 12, color: 'var(--red-panic)', marginTop: 8 }}>{locationError}</div>
+            )}
+            {profile.latitude != null && !locationError && (
+              <div style={{ fontSize: 12, color: 'var(--green)', marginTop: 8 }}>✓ Accurate GPS location saved</div>
+            )}
 
             <div style={{ height: 14 }} />
 
@@ -492,7 +535,7 @@ export const ProviderProfileScreen: React.FC = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-      <div style={{ background: 'var(--teal)', padding: '24px 20px 32px', flexShrink: 0 }}>
+      <div style={{ background: 'var(--teal)', padding: 'calc(24px + env(safe-area-inset-top)) 20px 32px', flexShrink: 0 }}>
         <div style={{ display: 'flex', gap: 16, alignItems: 'center', maxWidth: 700, margin: '0 auto' }}>
           <Avt initials={getInitials(profile.fullName || resolvedName)} size={68} />
           <div>

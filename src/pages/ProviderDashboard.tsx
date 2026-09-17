@@ -93,7 +93,7 @@ export function ProviderDashboard() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <div style={{ background: 'var(--teal)', padding: '16px 20px 22px', flexShrink: 0 }}>
+      <div style={{ background: 'var(--teal)', padding: 'calc(16px + env(safe-area-inset-top)) 20px 22px', flexShrink: 0 }}>
         <div
           style={{
             display: 'flex',

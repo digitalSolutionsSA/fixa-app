@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import {
   Wrench, Zap, Car, Shield, ChevronRight, AlertTriangle, MoreHorizontal,
+  Waves, Sun, Hammer, Printer,
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { supabase } from '../lib/supabase';
 import { RatingStars, Avt, NotifBell, ConsumerNav } from '../components/Shared';
+import { distanceKm, formatDistanceKm } from '../lib/location';
 import type { Provider } from '../types';
 
 const DEMO_PROVIDERS: Provider[] = [
@@ -32,6 +34,9 @@ function locationMatches(consumerArea: string, providerArea: string): boolean {
   return consumerWords.some((word) => providerNorm.includes(word));
 }
 
+// Providers within this radius of the consumer's GPS fix count as "nearby".
+const NEARBY_RADIUS_KM = 40;
+
 export function ConsumerHome() {
   const { navigate, selectProvider, currentUser, isDemo } = useApp();
   const firstName = getFirstName(currentUser?.name);
@@ -55,23 +60,34 @@ export function ConsumerHome() {
       }
       if (!userId) { setLoadingProviders(false); return; }
 
-      const { data: profile } = await supabase.from('profiles').select('area').eq('id', userId).maybeSingle();
+      const { data: profile } = await supabase.from('profiles').select('area, latitude, longitude').eq('id', userId).maybeSingle();
       const area = profile?.area || '';
+      const consumerCoords = profile?.latitude != null && profile?.longitude != null
+        ? { latitude: profile.latitude, longitude: profile.longitude }
+        : null;
       setConsumerArea(area);
-      if (!area) { setLoadingProviders(false); return; }
+      if (!area && !consumerCoords) { setLoadingProviders(false); return; }
 
       const { data: rows, error } = await supabase
         .from('profiles')
-        .select('id, full_name, trade, area, score, price_from')
+        .select('id, full_name, trade, area, latitude, longitude, score, price_from')
         .eq('role', 'provider');
 
       if (error || !rows) { setLoadingProviders(false); return; }
 
       const matched: Provider[] = rows
-        .filter((row) => locationMatches(area, row.area || ''))
-        .map((row) => ({
+        .map((row) => {
+          const providerCoords = row.latitude != null && row.longitude != null
+            ? { latitude: row.latitude, longitude: row.longitude }
+            : null;
+          const km = consumerCoords && providerCoords ? distanceKm(consumerCoords, providerCoords) : null;
+          return { row, km };
+        })
+        .filter(({ row, km }) => (km != null ? km <= NEARBY_RADIUS_KM : locationMatches(area, row.area || '')))
+        .sort((a, b) => (a.km ?? Infinity) - (b.km ?? Infinity))
+        .map(({ row, km }) => ({
           id: row.id, name: row.full_name || 'Provider', trade: row.trade || 'General',
-          rating: 0, jobCount: 0, distance: '—', priceFrom: row.price_from || 0,
+          rating: 0, jobCount: 0, distance: km != null ? formatDistanceKm(km) : '—', priceFrom: row.price_from || 0,
           verified: false, qualVerified: false, available: true,
           initials: getInitials(row.full_name), score: row.score || 0,
         }))
@@ -88,12 +104,17 @@ export function ConsumerHome() {
     { icon: <Wrench size={28} color="var(--teal)" />,          label: 'Plumber',     sub: 'Fast & reliable',  screen: 'plumber-screen' },
     { icon: <Zap size={28} color="var(--yellow-dark)" />,      label: 'Electrician', sub: 'Certified pros',   screen: 'electrician-screen' },
     { icon: <Car size={28} color="var(--navy)" />,             label: 'Mechanic',    sub: 'Mobile & trusted', screen: 'mechanic-screen' },
+    { icon: <Waves size={28} color="var(--teal)" />,           label: 'Pool Services', sub: 'Clean & maintained', screen: 'pool-services-screen' },
+    { icon: <Shield size={28} color="var(--navy)" />,          label: 'Security',    sub: 'Alarms & guarding', screen: 'security-screen' },
+    { icon: <Sun size={28} color="var(--yellow-dark)" />,      label: 'Solar',       sub: 'Power & backup',   screen: 'solar-screen' },
+    { icon: <Hammer size={28} color="var(--navy)" />,          label: 'Renovation',  sub: 'Build & upgrade',  screen: 'renovation-screen' },
+    { icon: <Printer size={28} color="var(--teal)" />,         label: 'Printing',    sub: 'Print & design',   screen: 'printing-screen' },
     { icon: <MoreHorizontal size={28} color="var(--text-secondary)" />, label: 'Other', sub: 'Handyman & more', screen: 'other-screen' },
   ] as const;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <div style={{ background: 'var(--teal)', padding: '16px 20px 22px', flexShrink: 0 }}>
+      <div style={{ background: 'var(--teal)', padding: 'calc(16px + env(safe-area-inset-top)) 20px 22px', flexShrink: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', maxWidth: 700, margin: '0 auto', width: '100%' }}>
           <div className="logo-wrap">
             <span className="logo-main">FI<span className="logo-x">X</span>A</span>

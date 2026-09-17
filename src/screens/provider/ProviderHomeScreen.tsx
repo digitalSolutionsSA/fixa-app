@@ -27,7 +27,7 @@ export const ProviderHomeScreen: React.FC = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       {/* Header */}
-      <div style={{ background: 'var(--teal)', padding: '16px 20px 22px', flexShrink: 0 }}>
+      <div style={{ background: 'var(--teal)', padding: 'calc(16px + env(safe-area-inset-top)) 20px 22px', flexShrink: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', maxWidth: 700, margin: '0 auto', width: '100%' }}>
           <div className="logo-wrap">
             <span className="logo-main">FI<span className="logo-x">X</span>A</span>

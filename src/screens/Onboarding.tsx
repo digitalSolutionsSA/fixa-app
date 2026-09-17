@@ -414,7 +414,7 @@ export const ModeSelectScreen: React.FC = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)' }}>
-      <div style={{ background: 'var(--teal)', padding: '24px 20px 28px', textAlign: 'center', flexShrink: 0 }}>
+      <div style={{ background: 'var(--teal)', padding: 'calc(24px + env(safe-area-inset-top)) 20px 28px', textAlign: 'center', flexShrink: 0 }}>
         <img
           src={LOGO_SRC}
           alt="Fixa Logo"

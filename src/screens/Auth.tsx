@@ -267,7 +267,7 @@ export const AuthScreen: React.FC = () => {
       <div
         style={{
           background: 'var(--teal)',
-          padding: '20px 20px 28px',
+          padding: 'calc(20px + env(safe-area-inset-top)) 20px 28px',
           color: 'white',
         }}
       >

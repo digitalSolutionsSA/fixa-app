@@ -53,7 +53,7 @@ export const AppHeader: React.FC<{
 }> = ({ title, back, showLogo, right, sub }) => {
   const { navigate } = useApp();
   return (
-    <div style={{ background:'var(--teal)', flexShrink:0, boxShadow:'0 2px 8px rgba(0,0,0,0.15)', zIndex:10 }}>
+    <div style={{ background:'var(--teal)', flexShrink:0, boxShadow:'0 2px 8px rgba(0,0,0,0.15)', zIndex:10, paddingTop:'env(safe-area-inset-top)' }}>
       <div style={{ height:60, display:'flex', alignItems:'center', gap:12, padding:'0 20px' }}>
         {back && (
           <button className="back-btn" onClick={() => navigate(back)}>

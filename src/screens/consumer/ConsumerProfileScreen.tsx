@@ -22,6 +22,7 @@ import {
 import { useApp } from '../../contexts/AppContext';
 import { supabase } from '../../lib/supabase';
 import { ConsumerNav, Avt } from '../../components/Shared';
+import { getCurrentDeviceLocation, LocationError } from '../../lib/location';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -74,6 +75,8 @@ interface ConsumerProfile {
   email: string;
   phone: string;
   location: string;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 interface TrustedContact {
@@ -169,7 +172,11 @@ export const ConsumerProfileScreen: React.FC = () => {
     email: '',
     phone: '',
     location: '',
+    latitude: null,
+    longitude: null,
   });
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationError, setLocationError] = useState('');
 
   const [trustedContact, setTrustedContact] = useState<TrustedContact>({
     name: '',
@@ -219,6 +226,8 @@ export const ConsumerProfileScreen: React.FC = () => {
           email: currentUser?.email || '',
           phone: currentUser?.phone || '',
           location: isDemo ? 'Sandton, Johannesburg' : '',
+          latitude: null,
+          longitude: null,
         });
         setIsLoading(false);
         return;
@@ -226,7 +235,7 @@ export const ConsumerProfileScreen: React.FC = () => {
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('full_name, email, phone, area, trusted_contact_name, trusted_contact_phone, trusted_contact_relationship')
+        .select('full_name, email, phone, area, latitude, longitude, trusted_contact_name, trusted_contact_phone, trusted_contact_relationship')
         .eq('id', userId)
         .maybeSingle();
 
@@ -237,6 +246,8 @@ export const ConsumerProfileScreen: React.FC = () => {
         email: data?.email || currentUser?.email || '',
         phone: data?.phone || currentUser?.phone || '',
         location: data?.area || '',
+        latitude: data?.latitude ?? null,
+        longitude: data?.longitude ?? null,
       });
 
       setTrustedContact({
@@ -280,6 +291,8 @@ export const ConsumerProfileScreen: React.FC = () => {
         email: profile.email,
         phone: profile.phone,
         area: profile.location,
+        latitude: profile.latitude,
+        longitude: profile.longitude,
         updated_at: new Date().toISOString(),
       })
       .eq('id', userId);
@@ -287,6 +300,19 @@ export const ConsumerProfileScreen: React.FC = () => {
     showSaved(error ? 'Error saving. Please try again.' : 'Personal information saved');
     setIsSaving(false);
   }, [profile, currentUser?.id]);
+
+  const useCurrentLocation = useCallback(async () => {
+    setIsLocating(true);
+    setLocationError('');
+    try {
+      const loc = await getCurrentDeviceLocation();
+      setProfile((p) => ({ ...p, location: loc.area, latitude: loc.latitude, longitude: loc.longitude }));
+    } catch (err) {
+      setLocationError(err instanceof LocationError ? err.message : 'Could not get your location. Try again.');
+    } finally {
+      setIsLocating(false);
+    }
+  }, []);
 
   const saveTrustedContact = useCallback(async () => {
     setIsSaving(true);
@@ -403,10 +429,28 @@ export const ConsumerProfileScreen: React.FC = () => {
             <input
               style={{ ...inputStyle, paddingLeft: 38 }}
               value={profile.location}
-              onChange={(e) => setProfile((p) => ({ ...p, location: e.target.value }))}
+              onChange={(e) => setProfile((p) => ({ ...p, location: e.target.value, latitude: null, longitude: null }))}
               placeholder="e.g. Sandton, Johannesburg"
             />
           </div>
+
+          <button
+            type="button"
+            className="btn btn-secondary btn-full"
+            style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+            onClick={useCurrentLocation}
+            disabled={isLocating}
+          >
+            {isLocating
+              ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Getting your location…</>
+              : <><MapPin size={16} /> Use My Current Location</>}
+          </button>
+          {locationError && (
+            <div style={{ fontSize: 12, color: 'var(--red-panic)', marginTop: 8 }}>{locationError}</div>
+          )}
+          {profile.latitude != null && !locationError && (
+            <div style={{ fontSize: 12, color: 'var(--green)', marginTop: 8 }}>✓ Accurate GPS location saved</div>
+          )}
 
           <button
             className="btn btn-primary btn-full"
@@ -651,7 +695,7 @@ export const ConsumerProfileScreen: React.FC = () => {
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
 
       {/* Header */}
-      <div style={{ background: 'var(--teal)', padding: '24px 20px 32px', flexShrink: 0 }}>
+      <div style={{ background: 'var(--teal)', padding: 'calc(24px + env(safe-area-inset-top)) 20px 32px', flexShrink: 0 }}>
         <div style={{ display: 'flex', gap: 16, alignItems: 'center', maxWidth: 700, margin: '0 auto' }}>
           <Avt initials={initials} size={64} />
           <div>
