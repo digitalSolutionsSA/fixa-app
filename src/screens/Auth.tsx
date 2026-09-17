@@ -271,26 +271,46 @@ export const AuthScreen: React.FC = () => {
           color: 'white',
         }}
       >
-        <button
-          onClick={handleBack}
-          disabled={isSubmitting}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            background: 'transparent',
-            border: 'none',
-            color: 'white',
-            cursor: isSubmitting ? 'not-allowed' : 'pointer',
-            padding: 0,
-            marginBottom: 18,
-            fontSize: 14,
-            opacity: isSubmitting ? 0.7 : 1,
-          }}
-        >
-          <ArrowLeft size={18} />
-          Back
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <button
+            onClick={handleBack}
+            disabled={isSubmitting}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              background: 'transparent',
+              border: 'none',
+              color: 'white',
+              cursor: isSubmitting ? 'not-allowed' : 'pointer',
+              padding: 0,
+              fontSize: 14,
+              opacity: isSubmitting ? 0.7 : 1,
+            }}
+          >
+            <ArrowLeft size={18} />
+            Back
+          </button>
+
+          <button
+            onClick={() => void loginAsDemo('consumer')}
+            disabled={isSubmitting}
+            type="button"
+            style={{
+              background: 'rgba(255,255,255,0.15)',
+              border: 'none',
+              borderRadius: 8,
+              color: 'white',
+              cursor: isSubmitting ? 'not-allowed' : 'pointer',
+              padding: '6px 12px',
+              fontSize: 13,
+              fontWeight: 700,
+              opacity: isSubmitting ? 0.7 : 1,
+            }}
+          >
+            Skip Sign In →
+          </button>
+        </div>
 
         <div style={{ textAlign: 'center' }}>
           <img
