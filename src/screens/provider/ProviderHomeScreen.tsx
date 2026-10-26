@@ -3,6 +3,7 @@ import { ChevronRight, Check, AlertTriangle } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { NotifBell, ProviderNav } from '../../components/Shared';
 import { getProviderStats } from '../../lib/jobs';
+import { refreshMyLocation } from '../../lib/location';
 
 export const ProviderHomeScreen: React.FC = () => {
   const { navigate, currentUser, isDemo } = useApp();
@@ -16,6 +17,8 @@ export const ProviderHomeScreen: React.FC = () => {
 
   useEffect(() => {
     if (isDemo || !currentUser?.id) { setStatsLoaded(true); return; }
+    // Keep the installer's position fresh so customers see an accurate distance.
+    refreshMyLocation(currentUser.id);
     getProviderStats(currentUser.id).then((s) => {
       setNewJobs(s.newJobs);
       setWeeklyEarnings(s.weeklyEarnings);

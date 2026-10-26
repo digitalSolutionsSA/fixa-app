@@ -4,7 +4,11 @@ import { useApp } from '../../contexts/AppContext';
 import { supabase } from '../../lib/supabase';
 import { AppHeader, ConsumerNav, RatingStars, Avt } from '../../components/Shared';
 import { PROVIDERS } from './providers';
+import { distanceKm, formatDistanceKm, refreshMyLocation } from '../../lib/location';
 import type { Provider } from '../../types';
+
+// Providers within this radius of the consumer's GPS fix count as "nearby".
+const NEARBY_RADIUS_KM = 40;
 
 function getInitials(name?: string | null) {
   if (!name) return '?';
@@ -78,30 +82,48 @@ export const FindProviderScreen: React.FC = () => {
       }
 
       let area = '';
-      if (userId) {
-        const { data: p } = await supabase.from('profiles').select('area').eq('id', userId).maybeSingle();
+      let consumerCoords: { latitude: number; longitude: number } | null = null;
+
+      // Prefer a live GPS fix; fall back to the last location saved on the profile.
+      const live = await refreshMyLocation(userId);
+      if (live) {
+        area = live.area;
+        consumerCoords = { latitude: live.latitude, longitude: live.longitude };
+      } else if (userId) {
+        const { data: p } = await supabase.from('profiles').select('area, latitude, longitude').eq('id', userId).maybeSingle();
         area = p?.area || '';
+        consumerCoords = p?.latitude != null && p?.longitude != null
+          ? { latitude: p.latitude, longitude: p.longitude }
+          : null;
       }
 
       setConsumerArea(area);
-      if (!area) { setNoLocationSet(true); setIsLoading(false); return; }
+      if (!area && !consumerCoords) { setNoLocationSet(true); setIsLoading(false); return; }
       setNoLocationSet(false);
 
       const { data: rows, error } = await supabase
         .from('profiles')
-        .select('id, full_name, trade, area, score, price_from')
+        .select('id, full_name, trade, area, latitude, longitude, score, price_from')
         .eq('role', 'provider');
 
       if (error) { console.error('Error loading providers:', error); setIsLoading(false); return; }
 
       const matched: ProviderRow[] = (rows || [])
-        .filter((row) => locationMatches(area, row.area || ''))
-        .map((row) => ({
+        .map((row) => {
+          const providerCoords = row.latitude != null && row.longitude != null
+            ? { latitude: row.latitude, longitude: row.longitude }
+            : null;
+          const km = consumerCoords && providerCoords ? distanceKm(consumerCoords, providerCoords) : null;
+          return { row, km };
+        })
+        .filter(({ row, km }) => (km != null ? km <= NEARBY_RADIUS_KM : locationMatches(area, row.area || '')))
+        .sort((a, b) => (a.km ?? Infinity) - (b.km ?? Infinity))
+        .map(({ row, km }) => ({
           id: row.id,
           name: row.full_name || 'Provider',
           trade: row.trade || 'General',
           _rawTrade: row.trade || '',
-          rating: 0, jobCount: 0, distance: '—', priceFrom: row.price_from || 0,
+          rating: 0, jobCount: 0, distance: km != null ? formatDistanceKm(km) : '—', priceFrom: row.price_from || 0,
           verified: false, qualVerified: false, available: true,
           initials: getInitials(row.full_name), score: row.score || 0,
         }));
@@ -215,7 +237,7 @@ export const FindProviderScreen: React.FC = () => {
               <Avt initials={p.initials} size={52} />
               <div style={{ flex: 1, textAlign: 'left' }}>
                 <div style={{ fontFamily: 'var(--font-head)', fontWeight: 800, fontSize: 15 }}>{p.name}</div>
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>{p.trade}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>{p.trade}{p.distance !== '—' && ` · ${p.distance} away`}</div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 5, flexWrap: 'wrap' }}>
                   {p.rating > 0 && <RatingStars rating={p.rating} size={12} />}
                   {p.verified && <span className="badge badge-green" style={{ fontSize: 10 }}>✓ Verified</span>}

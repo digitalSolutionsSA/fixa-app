@@ -3,7 +3,7 @@ import { MapPin, Search, Loader2, AlertCircle } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { supabase } from '../../lib/supabase';
 import { AppHeader, ConsumerNav, RatingStars, Avt } from '../../components/Shared';
-import { distanceKm, formatDistanceKm } from '../../lib/location';
+import { distanceKm, formatDistanceKm, refreshMyLocation } from '../../lib/location';
 import type { Provider } from '../../types';
 
 // Providers within this radius of the consumer's GPS fix count as "nearby".
@@ -51,7 +51,13 @@ export const CategoryProviderScreen: React.FC<Props> = ({ trade, title, backScre
 
       let area = '';
       let consumerCoords: { latitude: number; longitude: number } | null = null;
-      if (userId) {
+
+      // Prefer a live GPS fix; fall back to the last location saved on the profile.
+      const live = await refreshMyLocation(userId);
+      if (live) {
+        area = live.area;
+        consumerCoords = { latitude: live.latitude, longitude: live.longitude };
+      } else if (userId) {
         const { data: p } = await supabase
           .from('profiles')
           .select('area, latitude, longitude')

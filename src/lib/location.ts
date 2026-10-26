@@ -61,6 +61,22 @@ export async function saveDeviceLocation(userId: string, loc: DeviceLocation) {
   if (error) throw error;
 }
 
+// Grabs a fresh GPS fix and writes it to the user's profile so distances stay
+// live. Returns null (instead of throwing) when permission/GPS is unavailable,
+// so callers can fall back to the last saved coordinates.
+export async function refreshMyLocation(userId: string | null): Promise<DeviceLocation | null> {
+  try {
+    const loc = await getCurrentDeviceLocation();
+    if (userId && !userId.startsWith('demo-')) {
+      await saveDeviceLocation(userId, loc).catch((err) => console.warn('Could not save location:', err));
+    }
+    return loc;
+  } catch (err) {
+    console.warn('Could not get device location:', err);
+    return null;
+  }
+}
+
 const EARTH_RADIUS_KM = 6371;
 
 function toRad(deg: number) {
