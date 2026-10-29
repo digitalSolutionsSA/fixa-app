@@ -172,7 +172,7 @@ export const JobInProgressScreen: React.FC = () => {
           </div>
 
           {/* Provider card */}
-          <button className="card d1 animate-in" onClick={openProviderProfile} style={{ display: 'flex', gap: 12, alignItems: 'center', width: '100%', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+          <button className="card d1 animate-in" onClick={openProviderProfile} style={{ display: 'flex', gap: 12, alignItems: 'center', width: '100%', border: 'none', cursor: 'pointer', textAlign: 'left', color: 'var(--text-primary)' }}>
             <Avt initials={initials} size={52} />
             <div style={{ flex: 1 }}>
               <div style={{ fontFamily: 'var(--font-head)', fontWeight: 800, fontSize: 15 }}>{providerName}</div>
