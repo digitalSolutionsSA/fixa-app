@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { MapPin, X, Phone, Star, Loader2, CheckCircle, AlertTriangle, Clock, User, MessageCircle } from 'lucide-react';
+import { MapPin, X, Phone, Star, Loader2, CheckCircle, AlertTriangle, Clock, User, MessageCircle, Car, Navigation } from 'lucide-react';
 import { Avt } from './Shared';
 import { JobPhotos } from './JobPhotos';
 import { JobChat } from './JobChat';
 import { isChatAvailable } from '../lib/messages';
+import { markOnTheWay, markArrived, openDirections } from '../lib/tracking';
 import { updateJobStatus, type DbJob } from '../lib/jobs';
 import {
   getCustomerSummary, getMyCustomerReview, submitCustomerReview,
@@ -55,7 +56,7 @@ export const ProviderJobSheet: React.FC<{
 }> = ({ job, providerId, onClose, onJobChanged }) => {
   const [customer, setCustomer] = useState<CustomerSummary | null>(null);
   const [loadingCustomer, setLoadingCustomer] = useState(true);
-  const [busy, setBusy] = useState<'' | 'accept' | 'decline' | 'complete' | 'review'>('');
+  const [busy, setBusy] = useState<'' | 'accept' | 'decline' | 'complete' | 'review' | 'enroute' | 'arrived'>('');
   const [error, setError] = useState('');
 
   const [myReview, setMyReview] = useState<{ rating: number; comment: string | null } | null>(null);
@@ -94,6 +95,16 @@ export const ProviderJobSheet: React.FC<{
     if (err) { setError(err); return; }
     onJobChanged({ ...job, status, updated_at: new Date().toISOString() });
     if (status === 'declined') onClose();
+  };
+
+  const setTracking = async (kind: 'enroute' | 'arrived') => {
+    setBusy(kind);
+    setError('');
+    const { error: err } = kind === 'enroute' ? await markOnTheWay(job.id) : await markArrived(job.id);
+    setBusy('');
+    if (err) { setError(err); return; }
+    const now = new Date().toISOString();
+    onJobChanged(kind === 'enroute' ? { ...job, en_route_at: now } : { ...job, arrived_at: now });
   };
 
   const sendReview = async () => {
@@ -168,6 +179,47 @@ export const ProviderJobSheet: React.FC<{
               </div>
             </div>
           </div>
+
+          {/* ── Getting there (accepted jobs) ── */}
+          {job.status === 'active' && (
+            <div className="card" style={{ margin: 0, background: job.en_route_at && !job.arrived_at ? 'var(--teal-light)' : undefined }}>
+              {!job.en_route_at ? (
+                <>
+                  <div style={{ fontFamily: 'var(--font-head)', fontWeight: 800, fontSize: 15 }}>Ready to head out?</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, lineHeight: 1.4 }}>
+                    Tap <strong>I'm on my way</strong> and {(customer?.full_name || job.consumer_name || 'the customer').split(' ')[0]} can follow you live on a map until you arrive. Keep FIXA open while you drive.
+                  </div>
+                </>
+              ) : !job.arrived_at ? (
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  <Car size={22} color="var(--teal)" />
+                  <div style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.4 }}>
+                    <strong>You're on the way.</strong> Your live location is being shared with the customer until you tap <strong>I've arrived</strong>.
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, color: 'var(--green)', fontFamily: 'var(--font-head)', fontWeight: 700 }}>
+                  <CheckCircle size={16} /> Arrived {new Date(job.arrived_at).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })} · location sharing stopped
+                </div>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: job.arrived_at ? '1fr' : '1fr 1.3fr', gap: 8, marginTop: 12 }}>
+                <button className="btn btn-secondary btn-sm" onClick={() => openDirections(job.location)} style={{ gap: 6 }}>
+                  <Navigation size={15} /> Directions
+                </button>
+                {!job.en_route_at && (
+                  <button className="btn btn-accent btn-sm" disabled={!!busy} onClick={() => setTracking('enroute')} style={{ gap: 6 }}>
+                    {busy === 'enroute' ? <Loader2 size={15} style={{ animation: 'spin 0.8s linear infinite' }} /> : <Car size={15} />} I'm on my way
+                  </button>
+                )}
+                {job.en_route_at && !job.arrived_at && (
+                  <button className="btn btn-primary btn-sm" disabled={!!busy} onClick={() => setTracking('arrived')} style={{ gap: 6 }}>
+                    {busy === 'arrived' ? <Loader2 size={15} style={{ animation: 'spin 0.8s linear infinite' }} /> : <MapPin size={15} />} I've arrived
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* ── Customer ── */}
           <div className="card" style={{ margin: 0, border: lowRated ? '1.5px solid #F59E0B' : undefined }}>

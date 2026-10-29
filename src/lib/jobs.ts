@@ -14,6 +14,8 @@ export type DbJob = {
   status: 'pending' | 'active' | 'completed' | 'declined' | 'cancelled';
   photos?: string[] | null;
   closed_at?: string | null;
+  en_route_at?: string | null;
+  arrived_at?: string | null;
   created_at: string;
   updated_at: string;
 };

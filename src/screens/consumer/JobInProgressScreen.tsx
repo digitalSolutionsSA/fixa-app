@@ -5,7 +5,8 @@ import { AppHeader, ConsumerNav, RatingStars, Avt, PanicBanner } from '../../com
 import { getSafeSelectedProvider } from './providers';
 import { ProviderDetailsSheet } from '../../components/ProviderDetailsSheet';
 import type { Provider } from '../../types';
-import { getConsumerJobs, type DbJob } from '../../lib/jobs';
+import { getConsumerJobs, getJob, type DbJob } from '../../lib/jobs';
+import { TrackingMap } from '../../components/TrackingMap';
 import { supabase } from '../../lib/supabase';
 import { JobChat } from '../../components/JobChat';
 
@@ -16,6 +17,17 @@ export const JobInProgressScreen: React.FC = () => {
   const [viewingProvider, setViewingProvider] = useState<Provider | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [providerPhone, setProviderPhone] = useState<string | null>(null);
+  const [trackingOpen, setTrackingOpen] = useState(false);
+
+  // Keep the steps current (on the way / arrived) while this screen is open
+  useEffect(() => {
+    if (!activeJob?.id) return;
+    const t = setInterval(async () => {
+      const fresh = await getJob(activeJob.id);
+      if (fresh) setActiveJob(fresh.status === 'active' ? fresh : null);
+    }, 20000);
+    return () => clearInterval(t);
+  }, [activeJob?.id]);
 
   useEffect(() => {
     if (isDemo) { setLoading(false); return; }
@@ -40,7 +52,9 @@ export const JobInProgressScreen: React.FC = () => {
   const fmt = (iso: string) =>
     new Date(iso).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
-  // Real jobs only track requested → accepted; no live on-route/arrival data exists yet.
+  const enRoute = activeJob?.en_route_at ?? null;
+  const arrived = activeJob?.arrived_at ?? null;
+
   const steps: { label: string; time: string | null; state: 'done' | 'active' | 'idle' }[] = isDemo
     ? [
         { label: 'Job Confirmed',     time: '09:10', state: 'done'   },
@@ -49,9 +63,11 @@ export const JobInProgressScreen: React.FC = () => {
         { label: 'Job Complete',      time: null,    state: 'idle'   },
       ]
     : [
-        { label: 'Job Requested', time: activeJob ? fmt(activeJob.created_at) : null, state: 'done'   },
-        { label: 'Job Accepted',  time: activeJob ? fmt(activeJob.updated_at) : null, state: 'done'   },
-        { label: 'Job Complete',  time: null,                                         state: 'active' },
+        { label: 'Job Requested', time: activeJob ? fmt(activeJob.created_at) : null, state: 'done' },
+        { label: 'Job Accepted',  time: activeJob ? fmt(activeJob.updated_at) : null, state: 'done' },
+        { label: 'On the Way',    time: enRoute ? fmt(enRoute) : null, state: enRoute ? 'done' : 'active' },
+        { label: 'Arrived',       time: arrived ? fmt(arrived) : null, state: arrived ? 'done' : enRoute ? 'active' : 'idle' },
+        { label: 'Job Complete',  time: null,                          state: arrived ? 'active' : 'idle' },
       ];
 
   if (loading) {
@@ -142,7 +158,9 @@ export const JobInProgressScreen: React.FC = () => {
           {/* Progress steps */}
           <div className="card animate-in">
             <div style={{ fontFamily: 'var(--font-head)', fontWeight: 900, fontSize: 18 }}>
-              {isDemo ? `${providerName.split("'")[0].split(' ')[0]} is on the way` : `${providerName} accepted your job`}
+              {isDemo || (enRoute && !arrived)
+                ? `${providerName.split("'")[0].split(' ')[0]} is on the way`
+                : arrived ? `${providerName} has arrived` : `${providerName} accepted your job`}
             </div>
             {isDemo && (
               <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 3 }}>
@@ -158,7 +176,7 @@ export const JobInProgressScreen: React.FC = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {steps.map((s, i) => (
                 <React.Fragment key={s.label}>
-                  <div className="step-item">
+                  <div className="step-item" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div className={`step-dot ${s.state}`} />
                     <span style={{ flex: 1, fontFamily: 'var(--font-head)', fontWeight: s.state !== 'idle' ? 700 : 500, fontSize: 14, color: s.state !== 'idle' ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                       {s.label}
@@ -203,7 +221,7 @@ export const JobInProgressScreen: React.FC = () => {
             {[
               { icon: <MessageCircle size={22} />, label: 'Chat', onClick: isDemo ? undefined : () => setChatOpen(true) },
               { icon: <Phone size={22} />, label: 'Call', onClick: providerPhone ? () => { window.location.href = `tel:${providerPhone.replace(/\s/g, '')}`; } : undefined },
-              { icon: <Navigation size={22} />, label: 'Track', onClick: undefined },
+              { icon: <Navigation size={22} />, label: 'Track', onClick: isDemo || !activeJob ? undefined : () => setTrackingOpen(true) },
             ].map((a) => (
               <button key={a.label} className="card" onClick={a.onClick} disabled={!a.onClick} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: a.onClick ? 'pointer' : 'default', border: 'none', padding: '16px 8px', opacity: a.onClick ? 1 : 0.45 }}>
                 <div style={{ color: 'var(--teal)' }}>{a.icon}</div>
@@ -215,6 +233,9 @@ export const JobInProgressScreen: React.FC = () => {
       </div>
 
       {viewingProvider && <ProviderDetailsSheet provider={viewingProvider} onClose={() => setViewingProvider(null)} />}
+      {trackingOpen && activeJob && (
+        <TrackingMap job={activeJob} onClose={() => setTrackingOpen(false)} onJobUpdated={setActiveJob} />
+      )}
       {chatOpen && activeJob && currentUser?.id && (
         <JobChat job={activeJob} currentUserId={currentUser.id} otherName={activeJob.provider_name} onClose={() => setChatOpen(false)} />
       )}

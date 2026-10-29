@@ -15,6 +15,7 @@ import {
 } from './screens/Consumer';
 import { BookJobScreen } from './screens/consumer/BookJobScreen';
 import { NotificationsScreen } from './screens/NotificationsScreen';
+import { LocationSharingBanner } from './components/LocationSharingBanner';
 import {
   ProviderJobRequestScreen,
   ProviderJobsScreen,
@@ -91,6 +92,7 @@ function App() {
   return (
     <AppProvider>
       <ScreenRouter />
+      <LocationSharingBanner />
     </AppProvider>
   );
 }
