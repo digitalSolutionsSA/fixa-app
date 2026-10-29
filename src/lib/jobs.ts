@@ -50,6 +50,11 @@ export async function getConsumerJobs(consumerId: string): Promise<DbJob[]> {
   return data as DbJob[];
 }
 
+export async function getJob(jobId: string): Promise<DbJob | null> {
+  const { data } = await supabase.from('jobs').select('*').eq('id', jobId).maybeSingle();
+  return (data as DbJob) ?? null;
+}
+
 export async function getProviderJobs(providerId: string): Promise<DbJob[]> {
   const { data, error } = await supabase
     .from('jobs')

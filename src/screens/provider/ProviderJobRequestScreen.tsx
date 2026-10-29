@@ -3,6 +3,7 @@ import { MapPin, Briefcase, CheckCircle, Loader2 } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { AppHeader, ProviderNav } from '../../components/Shared';
 import { JobPhotos } from '../../components/JobPhotos';
+import { ProviderJobSheet } from '../../components/ProviderJobSheet';
 import { getProviderJobs, updateJobStatus, type DbJob } from '../../lib/jobs';
 
 function formatDate(iso: string) {
@@ -20,6 +21,17 @@ export const ProviderJobRequestScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [accepted, setAccepted] = useState<string | null>(null);
   const [declining, setDeclining] = useState<string | null>(null);
+  const [openJob, setOpenJob] = useState<DbJob | null>(null);
+
+  const applyJobChange = (updated: DbJob) => {
+    if (updated.status === 'pending') return;
+    setJobs((j) => j.filter((x) => x.id !== updated.id));
+    if (updated.status === 'active') {
+      setOpenJob(null);
+      setAccepted(updated.id);
+      setTimeout(() => navigate('provider-jobs'), 1600);
+    }
+  };
 
   const load = useCallback(async () => {
     if (isDemo || !currentUser?.id) { setLoading(false); return; }
@@ -84,7 +96,7 @@ export const ProviderJobRequestScreen: React.FC = () => {
           ) : (
             <>
               {jobs.map((job, i) => (
-                <div key={job.id} className="card animate-in" style={{ animationDelay: `${i * 0.07}s` }}>
+                <div key={job.id} className="card animate-in" style={{ animationDelay: `${i * 0.07}s`, cursor: 'pointer' }} onClick={() => setOpenJob(job)}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                     <div>
                       <div style={{ fontFamily: 'var(--font-head)', fontWeight: 900, fontSize: 20 }}>{job.title}</div>
@@ -103,6 +115,9 @@ export const ProviderJobRequestScreen: React.FC = () => {
                     <span style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
                       {job.consumer_name} – {job.location}
                     </span>
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--teal)', fontFamily: 'var(--font-head)', fontWeight: 700, marginBottom: 12 }}>
+                    View job &amp; customer details ›
                   </div>
 
                   <div className="divider" />
@@ -126,11 +141,11 @@ export const ProviderJobRequestScreen: React.FC = () => {
                     <button
                       className="btn btn-secondary"
                       disabled={declining === job.id}
-                      onClick={() => handleDecline(job)}
+                      onClick={(e) => { e.stopPropagation(); handleDecline(job); }}
                     >
                       {declining === job.id ? 'Declining…' : 'Decline'}
                     </button>
-                    <button className="btn btn-accent" onClick={() => handleAccept(job)}>
+                    <button className="btn btn-accent" onClick={(e) => { e.stopPropagation(); handleAccept(job); }}>
                       Accept Job
                     </button>
                   </div>
@@ -144,6 +159,10 @@ export const ProviderJobRequestScreen: React.FC = () => {
           )}
         </div>
       </div>
+      {openJob && currentUser?.id && (
+        <ProviderJobSheet job={openJob} providerId={currentUser.id} onClose={() => setOpenJob(null)} onJobChanged={applyJobChange} />
+      )}
+
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       <ProviderNav />
     </div>

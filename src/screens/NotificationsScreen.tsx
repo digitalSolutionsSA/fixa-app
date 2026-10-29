@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Bell, Loader2, CheckCheck } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { AppHeader } from '../components/Shared';
-import { getNotifications, markAllRead, type DbNotification } from '../lib/notifications';
+import { getNotifications, markAllRead, markRead, type DbNotification } from '../lib/notifications';
+import { getJob, type DbJob } from '../lib/jobs';
+import { ProviderJobSheet } from '../components/ProviderJobSheet';
 
 function timeAgo(iso: string) {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -25,6 +27,19 @@ export const NotificationsScreen: React.FC = () => {
 
   const [notifs, setNotifs]   = useState<DbNotification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [openJob, setOpenJob] = useState<DbJob | null>(null);
+  const canOpenJobs = mode === 'provider';
+
+  const openNotif = async (n: DbNotification) => {
+    if (!canOpenJobs || !n.job_id) return;
+    if (!n.read) {
+      markRead(n.id);
+      setNotifs((prev) => prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)));
+      refreshNotifCount();
+    }
+    const job = await getJob(n.job_id);
+    if (job) setOpenJob(job);
+  };
 
   useEffect(() => {
     if (isDemo || !currentUser?.id) { setLoading(false); return; }
@@ -83,7 +98,9 @@ export const NotificationsScreen: React.FC = () => {
             <div
               key={n.id}
               className="card animate-in"
+              onClick={() => openNotif(n)}
               style={{
+                cursor: canOpenJobs && n.job_id ? 'pointer' : undefined,
                 animationDelay: `${i * 0.04}s`,
                 borderLeft: `4px solid ${typeColor(n.type)}`,
                 opacity: n.read ? 0.7 : 1,
@@ -104,6 +121,10 @@ export const NotificationsScreen: React.FC = () => {
           ))}
         </div>
       </div>
+
+      {openJob && currentUser?.id && (
+        <ProviderJobSheet job={openJob} providerId={currentUser.id} onClose={() => setOpenJob(null)} onJobChanged={setOpenJob} />
+      )}
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>

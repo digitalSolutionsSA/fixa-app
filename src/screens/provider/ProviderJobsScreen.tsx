@@ -3,6 +3,7 @@ import { MapPin, Briefcase, Loader2, CheckCircle } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { AppHeader, ProviderNav } from '../../components/Shared';
 import { JobPhotos } from '../../components/JobPhotos';
+import { ProviderJobSheet } from '../../components/ProviderJobSheet';
 import { getProviderJobs, updateJobStatus, type DbJob } from '../../lib/jobs';
 
 function formatDate(iso: string) {
@@ -22,6 +23,12 @@ export const ProviderJobsScreen: React.FC = () => {
   const [jobs, setJobs] = useState<DbJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState<string | null>(null);
+  const [openJob, setOpenJob] = useState<DbJob | null>(null);
+
+  const applyJobChange = (updated: DbJob) => {
+    setJobs((prev) => prev.map((j) => (j.id === updated.id ? updated : j)));
+    setOpenJob(updated);
+  };
 
   const load = useCallback(async () => {
     if (isDemo || !currentUser?.id) { setLoading(false); return; }
@@ -44,7 +51,9 @@ export const ProviderJobsScreen: React.FC = () => {
     const { error } = await updateJobStatus(job.id, 'completed');
     setCompleting(null);
     if (error) { alert('Failed to mark complete: ' + error); return; }
-    setJobs((prev) => prev.map((j) => j.id === job.id ? { ...j, status: 'completed' } : j));
+    const updated: DbJob = { ...job, status: 'completed' };
+    setJobs((prev) => prev.map((j) => j.id === job.id ? updated : j));
+    setOpenJob(updated); // straight to rating the customer
   };
 
   return (
@@ -72,7 +81,7 @@ export const ProviderJobsScreen: React.FC = () => {
           )}
 
           {!loading && shown.map((job, i) => (
-            <div key={job.id} className="card card-clickable animate-in" style={{ animationDelay: `${i * 0.06}s` }}>
+            <div key={job.id} className="card card-clickable animate-in" style={{ animationDelay: `${i * 0.06}s`, cursor: 'pointer' }} onClick={() => setOpenJob(job)}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontFamily: 'var(--font-head)', fontWeight: 800, fontSize: 16, marginBottom: 4 }}>{job.title}</div>
@@ -98,11 +107,11 @@ export const ProviderJobsScreen: React.FC = () => {
 
               {tab === 'new' && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 14 }}>
-                  <button className="btn btn-secondary btn-sm" onClick={() => navigate('provider-job-request')}>
+                  <button className="btn btn-secondary btn-sm" onClick={(e) => { e.stopPropagation(); setOpenJob(job); }}>
                     Details
                   </button>
-                  <button className="btn btn-accent btn-sm" onClick={() => navigate('provider-job-request')}>
-                    Accept
+                  <button className="btn btn-accent btn-sm" onClick={(e) => { e.stopPropagation(); setOpenJob(job); }}>
+                    Review &amp; Accept
                   </button>
                 </div>
               )}
@@ -112,7 +121,7 @@ export const ProviderJobsScreen: React.FC = () => {
                   className="btn btn-primary btn-sm btn-full"
                   style={{ marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
                   disabled={completing === job.id}
-                  onClick={() => handleComplete(job)}
+                  onClick={(e) => { e.stopPropagation(); handleComplete(job); }}
                 >
                   {completing === job.id
                     ? <><Loader2 size={15} style={{ animation: 'spin 0.8s linear infinite' }} /> Marking complete…</>
@@ -125,6 +134,9 @@ export const ProviderJobsScreen: React.FC = () => {
                   <CheckCircle size={14} color="var(--green)" />
                   <span style={{ fontSize: 12, color: 'var(--green)', fontFamily: 'var(--font-head)', fontWeight: 700 }}>
                     Completed · R{(job.price * 0.965).toFixed(0)} earned
+                  </span>
+                  <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--teal)', fontFamily: 'var(--font-head)', fontWeight: 700 }}>
+                    Rate customer ›
                   </span>
                 </div>
               )}
@@ -148,6 +160,10 @@ export const ProviderJobsScreen: React.FC = () => {
           )}
         </div>
       </div>
+      {openJob && currentUser?.id && (
+        <ProviderJobSheet job={openJob} providerId={currentUser.id} onClose={() => setOpenJob(null)} onJobChanged={applyJobChange} />
+      )}
+
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       <ProviderNav />
     </div>
