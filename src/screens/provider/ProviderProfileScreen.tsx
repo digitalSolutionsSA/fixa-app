@@ -15,6 +15,7 @@ import {
   TRADE_CATEGORIES, TradeCategory,
 } from './constants';
 import { ProfileMenuButton, BackSectionHeader, ToggleRow } from './ProviderShared';
+import { WorkPhotosCard } from './WorkPhotosCard';
 
 export const ProviderProfileScreen: React.FC = () => {
   const { navigate, setMode, currentUser, logout } = useApp() as any;
@@ -342,6 +343,8 @@ export const ProviderProfileScreen: React.FC = () => {
                 : <><Save size={16} /> Save Changes</>}
             </button>
           </div>
+
+          <WorkPhotosCard providerId={currentUser?.id} />
         </>
       )}
     </>

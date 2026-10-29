@@ -3,6 +3,7 @@ import { MapPin, Search, Loader2, AlertCircle } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { supabase } from '../../lib/supabase';
 import { AppHeader, ConsumerNav, RatingStars, Avt } from '../../components/Shared';
+import { ProviderDetailsSheet } from '../../components/ProviderDetailsSheet';
 import { distanceKm, formatDistanceKm, refreshMyLocation } from '../../lib/location';
 import type { Provider } from '../../types';
 
@@ -38,6 +39,7 @@ export const CategoryProviderScreen: React.FC<Props> = ({ trade, title, backScre
   const [consumerArea, setConsumerArea] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [noLocationSet, setNoLocationSet] = useState(false);
+  const [viewing, setViewing] = useState<Provider | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -196,8 +198,8 @@ export const CategoryProviderScreen: React.FC<Props> = ({ trade, title, backScre
             <button
               key={p.id}
               className="provider-row"
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}
-              onClick={() => { selectProvider(p); navigate('provider-details'); }}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10, color: 'var(--text-primary)' }}
+              onClick={() => setViewing(p)}
             >
               <Avt initials={p.initials} size={52} />
               <div style={{ flex: 1, textAlign: 'left' }}>
@@ -224,6 +226,14 @@ export const CategoryProviderScreen: React.FC<Props> = ({ trade, title, backScre
           </p>
         </div>
       </div>
+
+      {viewing && (
+        <ProviderDetailsSheet
+          provider={viewing}
+          onClose={() => setViewing(null)}
+          onBook={() => { selectProvider(viewing); navigate('book-job'); }}
+        />
+      )}
 
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
       <ConsumerNav />

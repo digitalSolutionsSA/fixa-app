@@ -14,7 +14,6 @@ import {
   TopProvidersScreen,
 } from './screens/Consumer';
 import { BookJobScreen } from './screens/consumer/BookJobScreen';
-import { ProviderDetailsScreen } from './screens/consumer/ProviderDetailsScreen';
 import { NotificationsScreen } from './screens/NotificationsScreen';
 import {
   ProviderJobRequestScreen,
@@ -69,7 +68,6 @@ const ScreenRouter: React.FC = () => {
     'printing-screen':      <PrintingScreen />,
     'other-screen':       <OtherScreen />,
     'book-job':           <BookJobScreen />,
-    'provider-details':   <ProviderDetailsScreen />,
     'job-in-progress':    <JobInProgressScreen />,
     'provider-arrived':   <ProviderArrivedScreen />,
     'consumer-bookings':  <ConsumerBookingsScreen />,

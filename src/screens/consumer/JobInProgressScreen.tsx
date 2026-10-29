@@ -3,12 +3,15 @@ import { Navigation, Wrench, MapPin, AlertTriangle, MessageCircle, Phone, Briefc
 import { useApp } from '../../contexts/AppContext';
 import { AppHeader, ConsumerNav, RatingStars, Avt, PanicBanner } from '../../components/Shared';
 import { getSafeSelectedProvider } from './providers';
+import { ProviderDetailsSheet } from '../../components/ProviderDetailsSheet';
+import type { Provider } from '../../types';
 import { getConsumerJobs, type DbJob } from '../../lib/jobs';
 
 export const JobInProgressScreen: React.FC = () => {
-  const { navigate, triggerPanic, selectedProvider, selectProvider, isDemo, currentUser } = useApp();
+  const { navigate, triggerPanic, selectedProvider, isDemo, currentUser } = useApp();
   const [activeJob, setActiveJob] = useState<DbJob | null>(null);
   const [loading, setLoading] = useState(true);
+  const [viewingProvider, setViewingProvider] = useState<Provider | null>(null);
 
   useEffect(() => {
     if (isDemo) { setLoading(false); return; }
@@ -83,15 +86,10 @@ export const JobInProgressScreen: React.FC = () => {
   const demoRating = demoProvider?.rating ?? 0;
 
   const openProviderProfile = () => {
-    if (isDemo) {
-      if (demoProvider) selectProvider(demoProvider);
-    } else {
-      selectProvider({
-        id: activeJob!.provider_id, name: providerName, trade: providerTrade, rating: 0, jobCount: 0,
-        distance: '—', priceFrom: 0, verified: false, qualVerified: false, available: true, initials,
-      });
-    }
-    navigate('provider-details');
+    setViewingProvider(isDemo ? demoProvider : {
+      id: activeJob!.provider_id, name: providerName, trade: providerTrade, rating: 0, jobCount: 0,
+      distance: '—', priceFrom: 0, verified: false, qualVerified: false, available: true, initials,
+    });
   };
 
   return (
@@ -204,6 +202,8 @@ export const JobInProgressScreen: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {viewingProvider && <ProviderDetailsSheet provider={viewingProvider} onClose={() => setViewingProvider(null)} />}
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       <ConsumerNav />

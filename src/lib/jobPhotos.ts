@@ -5,7 +5,7 @@ const BUCKET = 'job-photos';
 const MAX_EDGE = 1600;
 
 // Phone photos are often 5–10 MB; shrink to a JPEG that loads quickly for the provider.
-async function compressImage(file: File): Promise<Blob> {
+export async function compressImage(file: File): Promise<Blob> {
   const url = URL.createObjectURL(file);
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
