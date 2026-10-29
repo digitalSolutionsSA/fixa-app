@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { MapPin, X, Phone, Star, Loader2, CheckCircle, AlertTriangle, Clock, User } from 'lucide-react';
+import { MapPin, X, Phone, Star, Loader2, CheckCircle, AlertTriangle, Clock, User, MessageCircle } from 'lucide-react';
 import { Avt } from './Shared';
 import { JobPhotos } from './JobPhotos';
+import { JobChat } from './JobChat';
+import { isChatAvailable } from '../lib/messages';
 import { updateJobStatus, type DbJob } from '../lib/jobs';
 import {
   getCustomerSummary, getMyCustomerReview, submitCustomerReview,
@@ -59,6 +61,7 @@ export const ProviderJobSheet: React.FC<{
   const [myReview, setMyReview] = useState<{ rating: number; comment: string | null } | null>(null);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
+  const [chatOpen, setChatOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -240,6 +243,12 @@ export const ProviderJobSheet: React.FC<{
             )}
           </div>
 
+          {job.status !== 'active' && isChatAvailable(job) && (
+            <button className="btn btn-secondary btn-full" onClick={() => setChatOpen(true)} style={{ gap: 8 }}>
+              <MessageCircle size={16} /> View chat history
+            </button>
+          )}
+
           {/* ── Rate the customer (completed jobs) ── */}
           {job.status === 'completed' && (
             <div className="card" style={{ margin: 0 }}>
@@ -290,15 +299,26 @@ export const ProviderJobSheet: React.FC<{
                 </button>
               </div>
             ) : (
-              <button className="btn btn-primary btn-full" disabled={!!busy} onClick={() => setStatus('completed', 'complete')} style={{ gap: 8 }}>
-                {busy === 'complete'
-                  ? <><Loader2 size={16} style={{ animation: 'spin 0.8s linear infinite' }} /> Marking complete…</>
-                  : <><CheckCircle size={16} /> Mark as Complete</>}
-              </button>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 10 }}>
+                <button className="btn btn-secondary" disabled={!!busy} onClick={() => setChatOpen(true)} style={{ gap: 8 }}>
+                  <MessageCircle size={16} /> Chat
+                </button>
+                <button className="btn btn-primary" disabled={!!busy} onClick={() => setStatus('completed', 'complete')} style={{ gap: 8 }}>
+                  {busy === 'complete'
+                    ? <><Loader2 size={16} style={{ animation: 'spin 0.8s linear infinite' }} /> Completing…</>
+                    : <><CheckCircle size={16} /> Mark Complete</>}
+                </button>
+              </div>
             )}
           </div>
         )}
       </div>
+
+      {chatOpen && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <JobChat job={job} currentUserId={providerId} otherName={name} onClose={() => setChatOpen(false)} />
+        </div>
+      )}
 
       <style>{`
         @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }

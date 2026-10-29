@@ -13,6 +13,7 @@ export type DbJob = {
   price: number;
   status: 'pending' | 'active' | 'completed' | 'declined' | 'cancelled';
   photos?: string[] | null;
+  closed_at?: string | null;
   created_at: string;
   updated_at: string;
 };

@@ -6,12 +6,16 @@ import { getSafeSelectedProvider } from './providers';
 import { ProviderDetailsSheet } from '../../components/ProviderDetailsSheet';
 import type { Provider } from '../../types';
 import { getConsumerJobs, type DbJob } from '../../lib/jobs';
+import { supabase } from '../../lib/supabase';
+import { JobChat } from '../../components/JobChat';
 
 export const JobInProgressScreen: React.FC = () => {
   const { navigate, triggerPanic, selectedProvider, isDemo, currentUser } = useApp();
   const [activeJob, setActiveJob] = useState<DbJob | null>(null);
   const [loading, setLoading] = useState(true);
   const [viewingProvider, setViewingProvider] = useState<Provider | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [providerPhone, setProviderPhone] = useState<string | null>(null);
 
   useEffect(() => {
     if (isDemo) { setLoading(false); return; }
@@ -23,6 +27,13 @@ export const JobInProgressScreen: React.FC = () => {
       setLoading(false);
     });
   }, [currentUser?.id, isDemo]);
+
+  // Provider's phone for the Call button (only once the job is accepted)
+  useEffect(() => {
+    if (!activeJob?.provider_id) { setProviderPhone(null); return; }
+    supabase.from('profiles').select('phone').eq('id', activeJob.provider_id).maybeSingle()
+      .then(({ data }) => setProviderPhone(data?.phone || null));
+  }, [activeJob?.provider_id]);
 
   const demoProvider = getSafeSelectedProvider(selectedProvider, isDemo);
 
@@ -190,11 +201,11 @@ export const JobInProgressScreen: React.FC = () => {
           {/* Actions */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
             {[
-              { icon: <MessageCircle size={22} />, label: 'Chat' },
-              { icon: <Phone size={22} />, label: 'Call' },
-              { icon: <Navigation size={22} />, label: 'Track' },
+              { icon: <MessageCircle size={22} />, label: 'Chat', onClick: isDemo ? undefined : () => setChatOpen(true) },
+              { icon: <Phone size={22} />, label: 'Call', onClick: providerPhone ? () => { window.location.href = `tel:${providerPhone.replace(/\s/g, '')}`; } : undefined },
+              { icon: <Navigation size={22} />, label: 'Track', onClick: undefined },
             ].map((a) => (
-              <button key={a.label} className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: 'pointer', border: 'none', padding: '16px 8px' }}>
+              <button key={a.label} className="card" onClick={a.onClick} disabled={!a.onClick} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: a.onClick ? 'pointer' : 'default', border: 'none', padding: '16px 8px', opacity: a.onClick ? 1 : 0.45 }}>
                 <div style={{ color: 'var(--teal)' }}>{a.icon}</div>
                 <span style={{ fontFamily: 'var(--font-head)', fontWeight: 700, fontSize: 13, color: 'var(--text-secondary)' }}>{a.label}</span>
               </button>
@@ -204,6 +215,9 @@ export const JobInProgressScreen: React.FC = () => {
       </div>
 
       {viewingProvider && <ProviderDetailsSheet provider={viewingProvider} onClose={() => setViewingProvider(null)} />}
+      {chatOpen && activeJob && currentUser?.id && (
+        <JobChat job={activeJob} currentUserId={currentUser.id} otherName={activeJob.provider_name} onClose={() => setChatOpen(false)} />
+      )}
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       <ConsumerNav />

@@ -3,6 +3,8 @@ import { Briefcase, Loader2, Star, X } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { AppHeader, ConsumerNav, Avt } from '../../components/Shared';
 import { getConsumerJobs, submitReview, hasReview, type DbJob } from '../../lib/jobs';
+import { JobChat } from '../../components/JobChat';
+import { isChatAvailable } from '../../lib/messages';
 
 // ── Demo data ──────────────────────────────────────────────────────────────────
 const DEMO_ACTIVE: DbJob[] = [
@@ -134,6 +136,7 @@ export const ConsumerBookingsScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [reviewedIds, setReviewedIds] = useState<Set<string>>(new Set());
   const [reviewJob, setReviewJob] = useState<DbJob | null>(null);
+  const [chatJob, setChatJob] = useState<DbJob | null>(null);
 
   const loadJobs = useCallback(async () => {
     if (isDemo) { setLoading(false); return; }
@@ -203,13 +206,23 @@ export const ConsumerBookingsScreen: React.FC = () => {
 
               {job.status === 'active' && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 14 }}>
-                  <button className="btn btn-secondary btn-sm" onClick={(e) => { e.stopPropagation(); navigate('provider-arrived'); }}>
-                    View Details
+                  <button className="btn btn-secondary btn-sm" disabled={isDemo} onClick={(e) => { e.stopPropagation(); setChatJob(job); }}>
+                    💬 Chat
                   </button>
                   <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); navigate('job-in-progress'); }}>
                     Track Job
                   </button>
                 </div>
+              )}
+
+              {!isDemo && job.status !== 'active' && isChatAvailable(job) && (
+                <button
+                  className="btn btn-secondary btn-sm"
+                  style={{ marginTop: 12, width: '100%' }}
+                  onClick={(e) => { e.stopPropagation(); setChatJob(job); }}
+                >
+                  💬 View chat history
+                </button>
               )}
 
               {job.status === 'completed' && !isDemo && !reviewedIds.has(job.id) && (
@@ -254,6 +267,10 @@ export const ConsumerBookingsScreen: React.FC = () => {
             setReviewJob(null);
           }}
         />
+      )}
+
+      {chatJob && currentUser && (
+        <JobChat job={chatJob} currentUserId={currentUser.id} otherName={chatJob.provider_name} onClose={() => setChatJob(null)} />
       )}
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
