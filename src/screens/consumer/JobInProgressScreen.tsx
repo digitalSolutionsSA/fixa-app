@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Navigation, Wrench, MapPin, AlertTriangle, MessageCircle, Phone, Briefcase, Loader2 } from 'lucide-react';
+import { Navigation, Wrench, MapPin, AlertTriangle, MessageCircle, Phone, Briefcase, Loader2, ChevronRight } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { AppHeader, ConsumerNav, RatingStars, Avt, PanicBanner } from '../../components/Shared';
 import { getSafeSelectedProvider } from './providers';
 import { getConsumerJobs, type DbJob } from '../../lib/jobs';
 
 export const JobInProgressScreen: React.FC = () => {
-  const { navigate, triggerPanic, selectedProvider, isDemo, currentUser } = useApp();
+  const { navigate, triggerPanic, selectedProvider, selectProvider, isDemo, currentUser } = useApp();
   const [activeJob, setActiveJob] = useState<DbJob | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -23,12 +23,22 @@ export const JobInProgressScreen: React.FC = () => {
 
   const demoProvider = getSafeSelectedProvider(selectedProvider, isDemo);
 
-  const steps = [
-    { label: 'Job Confirmed',      time: '09:10', state: 'done'   },
-    { label: 'Provider On Route',  time: '09:35', state: 'done'   },
-    { label: 'Arrived',            time: null,    state: 'active' },
-    { label: 'Job Complete',       time: null,    state: 'idle'   },
-  ] as const;
+  const fmt = (iso: string) =>
+    new Date(iso).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+  // Real jobs only track requested → accepted; no live on-route/arrival data exists yet.
+  const steps: { label: string; time: string | null; state: 'done' | 'active' | 'idle' }[] = isDemo
+    ? [
+        { label: 'Job Confirmed',     time: '09:10', state: 'done'   },
+        { label: 'Provider On Route', time: '09:35', state: 'done'   },
+        { label: 'Arrived',           time: null,    state: 'active' },
+        { label: 'Job Complete',      time: null,    state: 'idle'   },
+      ]
+    : [
+        { label: 'Job Requested', time: activeJob ? fmt(activeJob.created_at) : null, state: 'done'   },
+        { label: 'Job Accepted',  time: activeJob ? fmt(activeJob.updated_at) : null, state: 'done'   },
+        { label: 'Job Complete',  time: null,                                         state: 'active' },
+      ];
 
   if (loading) {
     return (
@@ -72,6 +82,18 @@ export const JobInProgressScreen: React.FC = () => {
   const initials = providerName.trim().split(' ').map((w: string) => w[0] || '').join('').slice(0, 2).toUpperCase();
   const demoRating = demoProvider?.rating ?? 0;
 
+  const openProviderProfile = () => {
+    if (isDemo) {
+      if (demoProvider) selectProvider(demoProvider);
+    } else {
+      selectProvider({
+        id: activeJob!.provider_id, name: providerName, trade: providerTrade, rating: 0, jobCount: 0,
+        distance: '—', priceFrom: 0, verified: false, qualVerified: false, available: true, initials,
+      });
+    }
+    navigate('provider-details');
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <AppHeader
@@ -82,8 +104,8 @@ export const JobInProgressScreen: React.FC = () => {
       <PanicBanner />
 
       <div className="screen">
-        {/* Map placeholder */}
-        <div className="map-bg" style={{ height: 220, margin: '16px', borderRadius: 'var(--radius-md)', flexShrink: 0 }}>
+        {/* Map placeholder (demo only — there is no live provider location yet) */}
+        {isDemo && <div className="map-bg" style={{ height: 220, margin: '16px', borderRadius: 'var(--radius-md)', flexShrink: 0 }}>
           <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
             <polyline points="60,180 110,130 170,90 220,60" stroke="var(--teal)" strokeWidth="3" strokeDasharray="7,5" fill="none" strokeLinecap="round" />
           </svg>
@@ -105,17 +127,19 @@ export const JobInProgressScreen: React.FC = () => {
               ETA: <span style={{ color: 'var(--green)' }}>12 min</span>
             </span>
           </div>
-        </div>
+        </div>}
 
-        <div className="screen-content" style={{ paddingTop: 0 }}>
+        <div className="screen-content" style={isDemo ? { paddingTop: 0 } : undefined}>
           {/* Progress steps */}
           <div className="card animate-in">
             <div style={{ fontFamily: 'var(--font-head)', fontWeight: 900, fontSize: 18 }}>
-              {providerName.split("'")[0].split(' ')[0]} is on the way
+              {isDemo ? `${providerName.split("'")[0].split(' ')[0]} is on the way` : `${providerName} accepted your job`}
             </div>
-            <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 3 }}>
-              Arriving in <strong style={{ color: 'var(--green)' }}>12 minutes</strong>
-            </div>
+            {isDemo && (
+              <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 3 }}>
+                Arriving in <strong style={{ color: 'var(--green)' }}>12 minutes</strong>
+              </div>
+            )}
             {!isDemo && activeJob && (
               <div style={{ marginTop: 6, fontSize: 13, color: 'var(--text-muted)' }}>
                 {activeJob.title} · {activeJob.location}
@@ -139,7 +163,7 @@ export const JobInProgressScreen: React.FC = () => {
           </div>
 
           {/* Provider card */}
-          <div className="card d1 animate-in" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <button className="card d1 animate-in" onClick={openProviderProfile} style={{ display: 'flex', gap: 12, alignItems: 'center', width: '100%', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
             <Avt initials={initials} size={52} />
             <div style={{ flex: 1 }}>
               <div style={{ fontFamily: 'var(--font-head)', fontWeight: 800, fontSize: 15 }}>{providerName}</div>
@@ -148,11 +172,14 @@ export const JobInProgressScreen: React.FC = () => {
                 <span className="badge badge-gray" style={{ fontSize: 10 }}>{providerTrade}</span>
               </div>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontFamily: 'var(--font-head)', fontWeight: 900, fontSize: 18 }}>R{providerPrice}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>In-App</div>
-            </div>
-          </div>
+            {providerPrice > 0 && (
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontFamily: 'var(--font-head)', fontWeight: 900, fontSize: 18 }}>R{providerPrice}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>In-App</div>
+              </div>
+            )}
+            <ChevronRight size={18} color="var(--text-muted)" />
+          </button>
 
           {/* Panic button */}
           <button onClick={triggerPanic} className="btn btn-danger btn-full panic-pulse d2 animate-in" style={{ fontSize: 16, padding: '18px', gap: 10 }}>

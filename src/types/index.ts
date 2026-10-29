@@ -17,6 +17,7 @@ export type Screen =
   | 'renovation-screen'
   | 'printing-screen'
   | 'other-screen'
+  | 'provider-details'
   | 'job-in-progress'
   | 'provider-arrived'
   | 'consumer-bookings'

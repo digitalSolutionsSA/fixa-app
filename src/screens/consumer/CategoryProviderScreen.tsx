@@ -197,7 +197,7 @@ export const CategoryProviderScreen: React.FC<Props> = ({ trade, title, backScre
               key={p.id}
               className="provider-row"
               style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}
-              onClick={() => { selectProvider(p); navigate('job-in-progress'); }}
+              onClick={() => { selectProvider(p); navigate('provider-details'); }}
             >
               <Avt initials={p.initials} size={52} />
               <div style={{ flex: 1, textAlign: 'left' }}>
