@@ -24,6 +24,10 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>FIXA uses your camera so you can take photos of the problem for your service provider.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>FIXA lets you choose photos of the problem to send to your service provider.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>FIXA uses your location to match you with nearby providers and show accurate distances.</string>
 	<key>UIApplicationSceneManifest</key>

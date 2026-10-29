@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { MapPin, Briefcase, Loader2, CheckCircle } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { AppHeader, ProviderNav } from '../../components/Shared';
+import { JobPhotos } from '../../components/JobPhotos';
 import { getProviderJobs, updateJobStatus, type DbJob } from '../../lib/jobs';
 
 function formatDate(iso: string) {
@@ -93,6 +94,7 @@ export const ProviderJobsScreen: React.FC = () => {
                   {job.description}
                 </div>
               ) : null}
+              <JobPhotos paths={job.photos} />
 
               {tab === 'new' && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 14 }}>

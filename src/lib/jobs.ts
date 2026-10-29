@@ -12,6 +12,7 @@ export type DbJob = {
   location: string;
   price: number;
   status: 'pending' | 'active' | 'completed' | 'declined' | 'cancelled';
+  photos?: string[] | null;
   created_at: string;
   updated_at: string;
 };
@@ -26,6 +27,7 @@ export async function createJob(data: {
   description: string;
   location: string;
   price: number;
+  photos?: string[];
 }): Promise<{ data: DbJob | null; error: string | null }> {
   const { data: job, error } = await supabase
     .from('jobs')

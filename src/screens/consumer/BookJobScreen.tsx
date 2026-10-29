@@ -1,28 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { CheckCircle, Loader2 } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { CheckCircle, Loader2, Camera, X } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { AppHeader, ConsumerNav, RatingStars, Avt } from '../../components/Shared';
 import { supabase } from '../../lib/supabase';
 import { createJob } from '../../lib/jobs';
+import { getJobTypesForTrade } from '../../lib/jobTypes';
+import { MAX_JOB_PHOTOS, uploadJobPhoto, deleteJobPhotos } from '../../lib/jobPhotos';
 import { inputStyle, labelStyle } from '../provider/constants';
 
-const JOB_TYPES = [
-  'Burst pipe / leak',
-  'Blocked drain',
-  'Geyser problem',
-  'Electrical fault',
-  'No power / tripped breaker',
-  'Light installation',
-  'Car service / maintenance',
-  'Tyre change',
-  'Painting',
-  'Garden / landscaping',
-  'Cleaning',
-  'Carpentry / woodwork',
-  'Tiling / flooring',
-  'General repairs',
-  'Other',
-];
+type PickedPhoto = { file: File; preview: string };
 
 export const BookJobScreen: React.FC = () => {
   const { navigate, selectedProvider, currentUser, isDemo } = useApp();
@@ -30,11 +16,35 @@ export const BookJobScreen: React.FC = () => {
   const [jobTitle, setJobTitle] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
+  const [photos, setPhotos] = useState<PickedPhoto[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const p = selectedProvider;
+  const jobTypes = getJobTypesForTrade(p?.trade);
+
+  // Free the preview object URLs when leaving the screen
+  const photosRef = useRef(photos);
+  photosRef.current = photos;
+  useEffect(() => () => photosRef.current.forEach((ph) => URL.revokeObjectURL(ph.preview)), []);
+
+  const addPhotos = (files: FileList | null) => {
+    if (!files) return;
+    const room = MAX_JOB_PHOTOS - photos.length;
+    const picked = Array.from(files).filter((f) => f.type.startsWith('image/') || /\.(heic|heif)$/i.test(f.name));
+    if (picked.length > room) setError(`You can add up to ${MAX_JOB_PHOTOS} photos.`);
+    else setError('');
+    setPhotos((prev) => [...prev, ...picked.slice(0, room).map((file) => ({ file, preview: URL.createObjectURL(file) }))]);
+  };
+
+  const removePhoto = (i: number) => {
+    setPhotos((prev) => {
+      URL.revokeObjectURL(prev[i].preview);
+      return prev.filter((_, idx) => idx !== i);
+    });
+  };
 
   // Pre-fill location from profile
   useEffect(() => {
@@ -65,6 +75,16 @@ export const BookJobScreen: React.FC = () => {
     }
 
     setSubmitting(true);
+
+    let photoPaths: string[] = [];
+    try {
+      photoPaths = await Promise.all(photos.map((ph) => uploadJobPhoto(currentUser.id, ph.file)));
+    } catch (e: any) {
+      setSubmitting(false);
+      setError(`Couldn't upload your photos: ${e?.message || 'please try again.'}`);
+      return;
+    }
+
     const { error: jobError } = await createJob({
       consumer_id:    currentUser.id,
       provider_id:    p.id,
@@ -75,10 +95,15 @@ export const BookJobScreen: React.FC = () => {
       description:    description.trim(),
       location:       location.trim(),
       price:          p.priceFrom,
+      ...(photoPaths.length ? { photos: photoPaths } : {}),
     });
     setSubmitting(false);
 
-    if (jobError) { setError(jobError); return; }
+    if (jobError) {
+      deleteJobPhotos(photoPaths);
+      setError(jobError);
+      return;
+    }
 
     setDone(true);
     setTimeout(() => navigate('consumer-bookings'), 1800);
@@ -144,7 +169,7 @@ export const BookJobScreen: React.FC = () => {
           <div className="card d1 animate-in">
             <label style={labelStyle}>What do you need? *</label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {JOB_TYPES.map((type) => (
+              {jobTypes.map((type) => (
                 <button
                   key={type}
                   onClick={() => setJobTitle(type)}
@@ -170,6 +195,39 @@ export const BookJobScreen: React.FC = () => {
               placeholder="E.g. Bathroom sink has been dripping for 3 days…"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+            />
+
+            <label style={{ ...labelStyle, marginTop: 14 }}>Add photos (optional, up to {MAX_JOB_PHOTOS})</label>
+            <div style={{ display: 'flex', gap: 10 }}>
+              {photos.map((ph, i) => (
+                <div key={ph.preview} style={{ position: 'relative', width: 76, height: 76 }}>
+                  <img src={ph.preview} alt={`Photo ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 12, border: '1px solid var(--border)' }} />
+                  <button
+                    onClick={() => removePhoto(i)}
+                    aria-label="Remove photo"
+                    style={{ position: 'absolute', top: -6, right: -6, width: 24, height: 24, borderRadius: '50%', border: '2px solid white', background: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}
+                  >
+                    <X size={13} color="white" />
+                  </button>
+                </div>
+              ))}
+              {photos.length < MAX_JOB_PHOTOS && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{ width: 76, height: 76, borderRadius: 12, border: '1.5px dashed var(--teal)', background: 'var(--teal-light)', color: 'var(--teal)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer', fontFamily: 'var(--font-head)', fontWeight: 700, fontSize: 11 }}
+                >
+                  <Camera size={22} />
+                  Add
+                </button>
+              )}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              style={{ display: 'none' }}
+              onChange={(e) => { addPhotos(e.target.files); e.target.value = ''; }}
             />
           </div>
 
@@ -207,7 +265,7 @@ export const BookJobScreen: React.FC = () => {
             style={{ gap: 10 }}
           >
             {submitting
-              ? <><Loader2 size={18} style={{ animation: 'spin 0.8s linear infinite' }} /> Sending…</>
+              ? <><Loader2 size={18} style={{ animation: 'spin 0.8s linear infinite' }} /> {photos.length ? 'Uploading photos…' : 'Sending…'}</>
               : 'Send Job Request'}
           </button>
 
